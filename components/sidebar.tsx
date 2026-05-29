@@ -1,21 +1,18 @@
-"use client";
-
 import {
-  Home,
-  Zap,
-  ArrowRightLeft,
-  Building2,
-  ShieldAlert,
-  LineChart,
-  History,
-  Bell,
-  Settings,
-  Pause,
   Activity,
+  ArrowRightLeft,
+  Bell,
+  Building2,
+  History,
+  Home,
+  LineChart,
+  Pause,
+  Settings,
+  ShieldAlert,
+  Zap,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/utils";
 import { activeStrategy } from "@/lib/mock-data";
+import { cn, formatCurrency } from "@/lib/utils";
 
 const menuItems = [
   { icon: Home, label: "Resumen", active: true },
@@ -26,41 +23,47 @@ const menuItems = [
   { icon: LineChart, label: "Estrategias" },
   { icon: History, label: "Backtesting" },
   { icon: Bell, label: "Alertas" },
-  { icon: Settings, label: "Configuracion" },
+  { icon: Settings, label: "Configuración" },
 ];
 
 export function Sidebar() {
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-card border-r border-border flex flex-col">
-      {/* Logo */}
-      <div className="px-6 py-6 border-b border-border">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-slate-200/80 bg-white/90 shadow-[18px_0_60px_rgba(15,48,87,0.06)] backdrop-blur-xl lg:flex">
+      <div className="px-7 py-7">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-            <Activity className="w-5 h-5 text-white" />
+          <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-slate-950 via-blue-900 to-cyan-500 shadow-lg shadow-cyan-900/20">
+            <Activity className="h-6 w-6 text-white" />
+            <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-cyan-300 ring-4 ring-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-primary">ArbiCore</h1>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+            <h1 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+              Arbi<span className="text-cyan-500">Core</span>
+            </h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.32em] text-slate-400">
               Arbitrage Simulator
             </p>
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 overflow-y-auto">
-        <ul className="space-y-1">
+      <nav className="flex-1 overflow-y-auto px-4 pb-5">
+        <ul className="space-y-2">
           {menuItems.map((item) => (
             <li key={item.label}>
               <button
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200",
+                  "group flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-sm font-bold transition-all duration-200",
                   item.active
-                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-cyan-50 text-slate-950 shadow-[0_14px_35px_rgba(6,182,212,0.14)] ring-1 ring-cyan-100"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-950"
                 )}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon
+                  className={cn(
+                    "h-5 w-5 transition",
+                    item.active ? "text-cyan-600" : "text-blue-900/60 group-hover:text-cyan-600"
+                  )}
+                />
                 {item.label}
               </button>
             </li>
@@ -68,44 +71,39 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Strategy Card */}
-      <div className="p-4">
-        <div className="p-4 rounded-2xl bg-gradient-to-br from-muted to-muted/50 border border-border">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-            <span className="text-xs font-medium text-muted-foreground">
+      <div className="p-5">
+        <div className="rounded-[1.75rem] border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-5 shadow-[0_18px_60px_rgba(7,43,78,0.08)]">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="text-xs font-black uppercase tracking-wide text-slate-500">
               Estrategia activa
             </span>
           </div>
-          <h3 className="font-semibold text-foreground mb-3">
-            {activeStrategy.name}
-          </h3>
+          <h3 className="text-lg font-black text-slate-950">{activeStrategy.name}</h3>
 
-          <div className="space-y-2 mb-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Capital asignado</span>
-              <span className="font-semibold text-foreground">
+          <div className="mt-5 space-y-4">
+            <div>
+              <p className="text-xs font-bold text-slate-500">Capital asignado</p>
+              <p className="mt-1 text-xl font-black text-slate-950">
                 {formatCurrency(activeStrategy.capital)}
-              </span>
+              </p>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Uso del capital</span>
-              <span className="font-semibold text-secondary">
-                {activeStrategy.capitalUsage}%
-              </span>
+            <div>
+              <div className="mb-2 flex justify-between text-sm">
+                <span className="font-bold text-slate-500">Uso del capital</span>
+                <span className="font-black text-slate-950">{activeStrategy.capitalUsage}%</span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400"
+                  style={{ width: `${activeStrategy.capitalUsage}%` }}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div className="w-full h-2 bg-background rounded-full overflow-hidden mb-4">
-            <div
-              className="h-full bg-gradient-to-r from-secondary to-accent rounded-full transition-all duration-500"
-              style={{ width: `${activeStrategy.capitalUsage}%` }}
-            />
-          </div>
-
-          <button className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors">
-            <Pause className="w-4 h-4" />
+          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:bg-cyan-700">
+            <Pause className="h-4 w-4" />
             Pausar motor
           </button>
         </div>

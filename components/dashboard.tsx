@@ -91,43 +91,39 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[linear-gradient(135deg,#f8fcff_0%,#eef7fb_45%,#ffffff_100%)] text-slate-950">
       <Sidebar />
-      
-      <div className="ml-64">
+
+      <div className="lg:ml-72">
         <Header />
-        
-        <main className="p-8">
+
+        <main className="mx-auto max-w-[1800px] px-5 py-6 lg:px-8 lg:py-8">
           <HeroSection />
           
           <KPICards data={kpis} />
           
           {/* Middle section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 gap-6 mb-8 xl:grid-cols-12">
+            <div className="xl:col-span-5">
               <PriceChart data={priceData} />
             </div>
-            <div>
+            <div className="xl:col-span-4">
               <OpportunitiesTable opportunities={mockOpportunities} />
             </div>
-          </div>
-          
-          {/* Balances section */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-            <div className="lg:col-span-3">
-              <RecentOperations operations={mockOperations} />
-            </div>
-            <div>
+            <div className="xl:col-span-3">
               <BalancesChart balances={mockBalances} />
             </div>
           </div>
           
           {/* Bottom section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+            <div className="xl:col-span-5">
+              <RecentOperations operations={mockOperations} />
+            </div>
+            <div className="xl:col-span-4">
               <RiskEngine metrics={riskMetrics} />
             </div>
-            <div>
+            <div className="xl:col-span-3">
               <SystemHealth data={systemHealth} />
             </div>
           </div>

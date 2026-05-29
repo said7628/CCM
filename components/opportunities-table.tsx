@@ -32,20 +32,20 @@ function ExchangeBadge({ exchange }: { exchange: string }) {
       >
         {config.icon}
       </div>
-      <span className="text-sm font-medium text-foreground">{exchange}</span>
+      <span className="text-sm font-medium text-slate-950">{exchange}</span>
     </div>
   );
 }
 
 export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+    <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(7,43,78,0.07)] transition duration-300 hover:shadow-[0_24px_80px_rgba(7,43,78,0.11)]">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-lg font-black text-slate-950">
           Oportunidades detectadas
         </h3>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted text-sm font-medium text-foreground hover:bg-muted/80 transition-colors">
+        <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 text-sm font-bold text-slate-700 hover:bg-cyan-50 hover:text-cyan-700 transition-colors">
           Ver todas
           <ArrowRight className="w-4 h-4" />
         </button>
@@ -56,28 +56,28 @@ export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
         <table className="w-full">
           <thead>
             <tr className="text-left">
-              <th className="pb-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="pb-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Comprar en
               </th>
-              <th className="pb-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="pb-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Vender en
               </th>
-              <th className="pb-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="pb-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Spread
               </th>
-              <th className="pb-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <th className="pb-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Volumen (USDT)
               </th>
-              <th className="pb-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-right">
+              <th className="pb-4 text-xs font-medium text-slate-500 uppercase tracking-wider text-right">
                 Beneficio est.
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-slate-100">
             {opportunities.map((opp) => (
               <tr
                 key={opp.id}
-                className="hover:bg-muted/50 transition-colors"
+                className="hover:bg-cyan-50/50 transition-colors"
               >
                 <td className="py-4">
                   <ExchangeBadge exchange={opp.buyExchange} />
@@ -86,17 +86,17 @@ export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
                   <ExchangeBadge exchange={opp.sellExchange} />
                 </td>
                 <td className="py-4">
-                  <span className="text-sm font-medium text-foreground">
+                  <span className="text-sm font-medium text-slate-950">
                     {opp.spread.toFixed(2)}%
                   </span>
                 </td>
                 <td className="py-4">
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-slate-500">
                     {formatNumber(opp.volume)}
                   </span>
                 </td>
                 <td className="py-4 text-right">
-                  <span className="text-sm font-semibold text-secondary">
+                  <span className="text-sm font-semibold text-cyan-600">
                     {formatCurrency(opp.profit)}
                   </span>
                 </td>

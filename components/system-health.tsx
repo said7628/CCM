@@ -26,7 +26,7 @@ function StatusItem({
 }) {
   return (
     <div className="flex items-center justify-between py-2">
-      <div className="flex items-center gap-2 text-muted-foreground">
+      <div className="flex items-center gap-2 text-slate-500">
         {icon}
         <span className="text-sm">{label}</span>
       </div>
@@ -40,9 +40,9 @@ export function SystemHealth({ data }: SystemHealthProps) {
   const strokeDashoffset = circumference - (data.uptime / 100) * circumference;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+    <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(7,43,78,0.07)] transition duration-300 hover:shadow-[0_24px_80px_rgba(7,43,78,0.11)]">
       {/* Header */}
-      <h3 className="text-lg font-semibold text-foreground mb-6">
+      <h3 className="text-lg font-black text-slate-950 mb-6">
         Salud del sistema
       </h3>
 
@@ -56,7 +56,7 @@ export function SystemHealth({ data }: SystemHealthProps) {
               cy="88"
               r="70"
               fill="none"
-              stroke="hsl(var(--muted))"
+              stroke="#e2e8f0"
               strokeWidth="12"
             />
             {/* Progress circle */}
@@ -65,7 +65,7 @@ export function SystemHealth({ data }: SystemHealthProps) {
               cy="88"
               r="70"
               fill="none"
-              stroke="hsl(var(--secondary))"
+              stroke="#10b981"
               strokeWidth="12"
               strokeLinecap="round"
               strokeDasharray={circumference}
@@ -75,10 +75,10 @@ export function SystemHealth({ data }: SystemHealthProps) {
           </svg>
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold text-foreground">
+            <span className="text-3xl font-bold text-slate-950">
               {data.uptime}%
             </span>
-            <span className="text-sm text-muted-foreground">Uptime</span>
+            <span className="text-sm text-slate-500">Uptime</span>
           </div>
         </div>
       </div>
@@ -97,7 +97,7 @@ export function SystemHealth({ data }: SystemHealthProps) {
         />
         <StatusItem
           icon={<Zap className="w-4 h-4" />}
-          label="Ejecucion"
+          label="Ejecución"
           status={data.execution}
         />
         <StatusItem
@@ -108,10 +108,10 @@ export function SystemHealth({ data }: SystemHealthProps) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 pt-4 border-t border-border text-muted-foreground">
-        <CheckCircle2 className="w-4 h-4 text-secondary" />
+      <div className="flex items-center gap-2 pt-4 border-t border-slate-200 text-slate-500">
+        <CheckCircle2 className="w-4 h-4 text-cyan-600" />
         <span className="text-xs">
-          Ultima verificacion: hace {data.lastCheck} segundos
+          Última verificación: hace {data.lastCheck} segundos
         </span>
       </div>
     </div>

@@ -10,7 +10,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -29,11 +28,11 @@ export function PriceChart({ data }: PriceChartProps) {
   const [activeFilter, setActiveFilter] = useState("5M");
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+    <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(7,43,78,0.07)] transition duration-300 hover:shadow-[0_24px_80px_rgba(7,43,78,0.11)]">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-foreground">
+          <h3 className="text-lg font-black text-slate-950">
             Precio BTC en tiempo real
           </h3>
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-medium">
@@ -44,13 +43,13 @@ export function PriceChart({ data }: PriceChartProps) {
 
         <div className="flex items-center gap-3">
           {/* Pair selector */}
-          <select className="px-3 py-1.5 rounded-lg bg-muted border border-border text-sm font-medium text-foreground">
+          <select className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-sm font-bold text-slate-700">
             <option>BTC / USDT</option>
             <option>ETH / USDT</option>
           </select>
 
           {/* Time filters */}
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-muted">
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
             {timeFilters.map((filter) => (
               <button
                 key={filter}
@@ -58,8 +57,8 @@ export function PriceChart({ data }: PriceChartProps) {
                 className={cn(
                   "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
                   activeFilter === filter
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-white text-slate-950 shadow-sm"
+                    : "text-slate-500 hover:text-slate-950"
                 )}
               >
                 {filter}
@@ -68,8 +67,8 @@ export function PriceChart({ data }: PriceChartProps) {
           </div>
 
           {/* Expand button */}
-          <button className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
-            <Maximize2 className="w-4 h-4 text-muted-foreground" />
+          <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 transition hover:bg-cyan-50">
+            <Maximize2 className="w-4 h-4 text-slate-500" />
           </button>
         </div>
       </div>
@@ -78,51 +77,51 @@ export function PriceChart({ data }: PriceChartProps) {
       <div className="flex items-center gap-6 mb-4">
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-[#00b8b0]" />
-          <span className="text-sm text-muted-foreground">Binance</span>
+          <span className="text-sm text-slate-500">Binance</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-[#0052FF]" />
-          <span className="text-sm text-muted-foreground">Coinbase</span>
+          <span className="text-sm text-slate-500">Coinbase</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-[#5741D9]" />
-          <span className="text-sm text-muted-foreground">Kraken</span>
+          <span className="text-sm text-slate-500">Kraken</span>
         </div>
       </div>
 
       {/* Chart */}
-      <div className="h-[280px]">
+      <div className="h-[315px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="hsl(var(--border))"
+              stroke="#e2e8f0"
               vertical={false}
             />
             <XAxis
               dataKey="time"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+              tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }}
               dy={10}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+              tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }}
               dx={-10}
               domain={["dataMin - 100", "dataMax + 100"]}
               tickFormatter={(value) => value.toLocaleString()}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: "#ffffff",
+                border: "1px solid #e2e8f0",
                 borderRadius: "12px",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
-              labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
-              itemStyle={{ color: "hsl(var(--muted-foreground))" }}
+              labelStyle={{ color: "#0f172a", fontWeight: 800 }}
+              itemStyle={{ color: "#64748b" }}
               formatter={(value: number) => [`$${value.toLocaleString()}`, ""]}
             />
             <Line
