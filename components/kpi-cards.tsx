@@ -1,13 +1,9 @@
 "use client";
 
-import { Link2, Zap, CheckCircle2, TrendingUp } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-} from "recharts";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { CheckCircle2, Link2, TrendingUp, Zap } from "lucide-react";
+import { Line, LineChart, ResponsiveContainer } from "recharts";
 import { generateSparklineData } from "@/lib/mock-data";
+import { formatCurrency, formatPercent } from "@/lib/utils";
 
 interface KPICardProps {
   title: string;
@@ -31,40 +27,34 @@ function KPICard({
   const sparklineData = showSparkline ? generateSparklineData(12842, 12, 0.01) : [];
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
-      <div className="flex items-start justify-between mb-4">
-        <div
-          className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center`}
-        >
+    <article className="group relative overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(7,43,78,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_80px_rgba(7,43,78,0.12)]">
+      <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-[4rem] bg-cyan-50/70 transition group-hover:bg-cyan-100/70" />
+      <div className="relative flex items-start justify-between gap-4">
+        <div className={`grid h-14 w-14 place-items-center rounded-2xl ${iconBg}`}>
           {icon}
         </div>
         {showSparkline && (
-          <div className="w-24 h-10">
+          <div className="h-12 w-28">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparklineData}>
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="hsl(var(--secondary))"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                <Line type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         )}
       </div>
-      <p className="text-sm text-muted-foreground mb-1">{title}</p>
-      <div className="flex items-baseline gap-3">
-        <span className="text-3xl font-bold text-foreground">{value}</span>
-        {change !== undefined && (
-          <span className="text-sm font-medium text-secondary">
-            {formatPercent(change)}
-          </span>
-        )}
+
+      <div className="relative mt-5">
+        <p className="max-w-[12rem] text-sm font-semibold leading-5 text-slate-500">{title}</p>
+        <div className="mt-2 flex flex-wrap items-end gap-3">
+          <span className="text-3xl font-black tracking-[-0.04em] text-slate-950">{value}</span>
+          {change !== undefined && (
+            <span className="pb-1 text-sm font-black text-emerald-500">{formatPercent(change)} ↗</span>
+          )}
+        </div>
+        {subtitle && <p className="mt-3 text-sm font-bold text-cyan-600">{subtitle}</p>}
       </div>
-      <p className="text-sm text-secondary mt-2">{subtitle}</p>
-    </div>
+    </article>
   );
 }
 
@@ -80,34 +70,34 @@ interface KPICardsProps {
 
 export function KPICards({ data }: KPICardsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
       <KPICard
         title="Exchanges conectados"
         value={data.exchangesConnected}
-        subtitle="En linea"
-        icon={<Link2 className="w-6 h-6 text-secondary" />}
-        iconBg="bg-secondary/10"
+        subtitle="En línea"
+        icon={<Link2 className="h-7 w-7 text-cyan-600" />}
+        iconBg="bg-cyan-50"
       />
       <KPICard
         title="Oportunidades detectadas"
         value={data.opportunitiesDetected}
-        subtitle="Ultimos 5 min"
-        icon={<Zap className="w-6 h-6 text-amber-500" />}
-        iconBg="bg-amber-50"
+        subtitle="Últimos 5 min"
+        icon={<Zap className="h-7 w-7 text-teal-600" />}
+        iconBg="bg-teal-50"
       />
       <KPICard
         title="Operaciones ejecutadas"
         value={data.operationsExecuted}
-        subtitle="Ultimas 24 h"
-        icon={<CheckCircle2 className="w-6 h-6 text-emerald-500" />}
-        iconBg="bg-emerald-50"
+        subtitle="Últimas 24 h"
+        icon={<CheckCircle2 className="h-7 w-7 text-blue-600" />}
+        iconBg="bg-blue-50"
       />
       <KPICard
         title="P&L neto (24h)"
         value={formatCurrency(data.pnl)}
         subtitle=""
-        icon={<TrendingUp className="w-6 h-6 text-secondary" />}
-        iconBg="bg-secondary/10"
+        icon={<TrendingUp className="h-7 w-7 text-violet-600" />}
+        iconBg="bg-violet-50"
         change={data.pnlPercent}
         showSparkline
       />

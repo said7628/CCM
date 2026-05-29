@@ -19,9 +19,9 @@ export function BalancesChart({ balances }: BalancesChartProps) {
   const total = balances.reduce((sum, b) => sum + b.value, 0);
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+    <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(7,43,78,0.07)] transition duration-300 hover:shadow-[0_24px_80px_rgba(7,43,78,0.11)]">
       {/* Header */}
-      <h3 className="text-lg font-semibold text-foreground mb-6">
+      <h3 className="text-lg font-black text-slate-950 mb-6">
         Balances por exchange
       </h3>
 
@@ -47,8 +47,8 @@ export function BalancesChart({ balances }: BalancesChartProps) {
 
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs text-muted-foreground">Total</span>
-          <span className="text-xl font-bold text-foreground">
+          <span className="text-xs text-slate-500">Total</span>
+          <span className="text-xl font-bold text-slate-950">
             ${(total / 1000000).toFixed(2)}M
           </span>
         </div>
@@ -66,15 +66,15 @@ export function BalancesChart({ balances }: BalancesChartProps) {
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: balance.color }}
               />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-slate-500">
                 {balance.name}
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-sm font-medium text-slate-950">
                 {formatCurrency(balance.value)}
               </span>
-              <span className="text-xs text-muted-foreground w-8 text-right">
+              <span className="text-xs text-slate-500 w-8 text-right">
                 {balance.percent}%
               </span>
             </div>
@@ -83,7 +83,7 @@ export function BalancesChart({ balances }: BalancesChartProps) {
       </div>
 
       {/* Footer button */}
-      <button className="w-full mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-muted text-sm font-medium text-foreground hover:bg-muted/80 transition-colors">
+      <button className="w-full mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-50 text-sm font-bold text-slate-700 hover:bg-cyan-50 hover:text-cyan-700 transition-colors">
         Ver todos los balances
         <ArrowRight className="w-4 h-4" />
       </button>

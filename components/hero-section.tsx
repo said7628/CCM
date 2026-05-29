@@ -1,55 +1,58 @@
-"use client";
-
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      {/* Left content */}
-      <div className="lg:col-span-2">
-        <h1 className="text-4xl font-bold text-foreground mb-3 text-balance">
-          Arbitraje en tiempo real
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-xl">
-          Detectamos oportunidades en milisegundos y ejecutamos con velocidad.
-        </p>
+    <section className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.9fr_1fr]">
+      <div className="relative overflow-hidden rounded-[2rem] border border-cyan-100/80 bg-white/75 p-8 shadow-[0_20px_70px_rgba(7,43,78,0.08)] backdrop-blur xl:p-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(20,184,166,0.14),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(241,249,255,0.74))]" />
+        <div className="absolute right-0 top-0 h-full w-2/3 opacity-50 [background-image:linear-gradient(rgba(15,71,116,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(15,71,116,0.08)_1px,transparent_1px)] [background-size:64px_64px]" />
+        <div className="relative max-w-3xl">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700">
+            <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_0_6px_rgba(6,182,212,0.14)]" />
+            Mercado sincronizado en vivo
+          </div>
+          <h1 className="max-w-3xl text-balance text-4xl font-black tracking-[-0.04em] text-slate-950 md:text-5xl xl:text-6xl">
+            Arbitraje en tiempo real
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
+            Detectamos oportunidades en milisegundos, validamos riesgo y
+            ejecutamos arbitrajes con precisión institucional.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-4 text-sm font-semibold text-slate-600">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <ShieldCheck className="h-5 w-5 text-emerald-500" />
+              Riesgo protegido
+            </div>
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              Latencia media 23 ms
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Hero card */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary to-secondary p-6 text-white">
-        {/* Abstract shapes */}
-        <div className="absolute top-0 right-0 w-32 h-32 opacity-20">
-          <div className="absolute top-4 right-4 w-16 h-16 border-2 border-white/40 rounded-lg transform rotate-12" />
-          <div className="absolute top-8 right-8 w-12 h-12 border-2 border-white/30 rounded-lg transform -rotate-6" />
-          <div className="absolute top-2 right-12 w-8 h-8 bg-white/20 rounded-lg transform rotate-45" />
+      <article className="relative min-h-[330px] overflow-hidden rounded-[2rem] border border-white/30 bg-[#0a3769] p-5 text-white shadow-[0_24px_80px_rgba(5,39,78,0.22)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.34),transparent_30%),linear-gradient(135deg,#07315f,#0d6aa9_58%,#bfefff)]" />
+        <img
+          src="/imagehero.png"
+          alt="Visual tecnológico de arbitraje cripto de ArbiCore"
+          className="absolute inset-0 h-full w-full object-cover opacity-90 mix-blend-screen"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#08284d]/90 via-[#08315f]/58 to-white/10" />
+        <div className="relative z-10 flex h-full min-h-[290px] flex-col justify-end p-4 md:max-w-[56%] xl:max-w-[62%]">
+          <h2 className="text-balance text-2xl font-black tracking-[-0.03em] md:text-3xl">
+            Ejecución inteligente sin límites
+          </h2>
+          <p className="mt-4 text-sm leading-7 text-cyan-50/90">
+            Nuestro motor busca, evalúa y prioriza oportunidades en múltiples
+            mercados de forma automática.
+          </p>
+          <button className="mt-6 inline-flex w-fit items-center gap-3 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-cyan-950/20 transition hover:-translate-y-0.5 hover:bg-cyan-50">
+            Ver cómo funciona
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
-
-        {/* Bitcoin icon */}
-        <div className="absolute bottom-4 right-4 opacity-10">
-          <svg
-            width="80"
-            height="80"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M11.5 11.5v-2h1.75c.55 0 1 .45 1 1s-.45 1-1 1H11.5zm0 1h2.25c.55 0 1 .45 1 1s-.45 1-1 1H11.5v-2z" />
-            <path d="M9 9V8h1v1h1V8h1v1.09c1.71.17 3 1.6 3 3.32 0 .63-.17 1.22-.47 1.72.3.5.47 1.09.47 1.72 0 1.72-1.29 3.15-3 3.32V20h-1v-1h-1v1H9v-1H7v-1.5h1v-6H7V10h2V9zm2.5 7.5h2.25c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5H11.5v3zm0-4h1.75c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5H11.5v3z" />
-          </svg>
-        </div>
-
-        <h3 className="text-xl font-bold mb-2 text-balance">
-          Ejecucion inteligente sin limites
-        </h3>
-        <p className="text-sm text-white/80 mb-6 leading-relaxed">
-          Nuestro motor busca, evalua y ejecuta oportunidades en multiples
-          mercados de forma automatica.
-        </p>
-
-        <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-primary font-medium text-sm hover:bg-white/90 transition-colors">
-          Ver como funciona
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
+      </article>
     </section>
   );
 }
