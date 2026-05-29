@@ -16,6 +16,8 @@ import { loadConfig, EXCHANGE_FEES, buildBalances } from '../domain/config';
 import { WalletManager } from '../engine/wallet';
 import { ArbitrageEngine, type TickResult } from '../engine/engine';
 import { SimulatedSource, type MarketDataSource } from '../exchanges/source';
+import { TriangularEngine } from '../exchanges/triangular';
+import type { TriFeed } from '../exchanges/tri-source';
 import type { OrderBook, Opportunity } from '../domain/types';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -92,6 +94,29 @@ async function main(): Promise<void> {
   const source = await buildSource(mode, trading, eventDriven ? Math.min(tickIntervalMs, 120) : tickIntervalMs);
   await source.start();
 
+  // Optional triangular arbitrage (within one exchange), enabled with TRIANGULAR=1.
+  let triEngine: TriangularEngine | null = null;
+  let triFeed: TriFeed | null = null;
+  if (process.env.TRIANGULAR === '1') {
+    const triExchange = process.env.TRI_EXCHANGE ?? 'binance';
+    const triFee = Number(process.env.TRI_TAKER ?? EXCHANGE_FEES[triExchange]?.taker ?? 0.001);
+    const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
+    triEngine = new TriangularEngine({
+      exchange: triExchange, takerFee: triFee, notionalUSDT: triNotional,
+      minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
+    });
+    if (mode === 'live') {
+      const { CcxtTriFeed } = await import('../exchanges/tri-source');
+      triFeed = new CcxtTriFeed(triExchange, trading.pollIntervalMs, trading.orderBookDepth);
+    } else {
+      const { SimTriFeed } = await import('../exchanges/tri-source');
+      triFeed = new SimTriFeed(triExchange, 200);
+    }
+    await triFeed.start();
+    setInterval(() => { if (triFeed && triEngine) triEngine.tick(triFeed.getBooks()); }, mode === 'live' ? 250 : 200);
+    console.log(`[info] triangular arbitrage enabled on ${triExchange} (fee ${(triFee * 100).toFixed(3)}%)`);
+  }
+
   const pnlHistory: { t: number; pnl: number; value: number }[] = [];
   let latest: object | null = null;
 
@@ -129,6 +154,7 @@ async function main(): Promise<void> {
       },
       wallets: wallets.allWallets(),
       pnlHistory,
+      triangular: triEngine ? triEngine.getState() : { enabled: false },
     };
   };
 

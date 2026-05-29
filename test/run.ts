@@ -17,6 +17,7 @@ import { RiskManager } from '../src/engine/risk';
 import { ArbitrageEngine } from '../src/engine/engine';
 import { LocalOrderBook, crc32 } from '../src/exchanges/localbook';
 import { BinanceBookSyncer } from '../src/exchanges/binance-sync';
+import { detectTriangular, TriangularEngine } from '../src/exchanges/triangular';
 
 // ---- tiny test harness ----
 let passed = 0;
@@ -382,6 +383,40 @@ console.log('\n=== 18. executor cost breakdown adds up ===');
   const recomputed = trade.grossProfit - trade.tradingFees - trade.slippageCost - trade.latencyPenalty - trade.withdrawalCost;
   check('net == gross − fees − slippage − latency − withdrawal', approx(trade.netProfit, recomputed, 1e-9), `${trade.netProfit} vs ${recomputed}`);
   check('net == 88.75', approx(trade.netProfit, 88.75, 1e-6), `got ${trade.netProfit}`);
+}
+
+console.log('\n=== 19. triangular arbitrage ===');
+{
+  // ETH is cheap in BTC terms (0.0495 vs fair ~0.05) -> direction A profits.
+  const tri = {
+    'BTC/USDT': book('binance', [[69990, 5]], [[70000, 5]]),
+    'ETH/USDT': book('binance', [[3499, 50]], [[3500, 50]]),
+    'ETH/BTC': book('binance', [[0.0494, 50]], [[0.0495, 50]]),
+  };
+  const p = { exchange: 'binance', takerFee: 0.001, notionalUSDT: 10_000, minNetPct: 0.0005 };
+  const opp = detectTriangular(tri, p)!;
+  check('detects a triangular opportunity', !!opp);
+  check('picks the profitable direction A', opp.direction === 'A', `got ${opp.direction}`);
+  check('executable', opp.executable, `net% ${opp.netProfitPct}`);
+  check('net profit positive & sane (~$60-80)', opp.netProfit > 50 && opp.netProfit < 90, `got ${opp.netProfit}`);
+  check('three legs', opp.legs.length === 3);
+
+  // Fair cross-rate -> no profitable loop.
+  const eff = {
+    'BTC/USDT': book('binance', [[69990, 5]], [[70000, 5]]),
+    'ETH/USDT': book('binance', [[3499, 50]], [[3500, 50]]),
+    'ETH/BTC': book('binance', [[0.04999, 50]], [[0.05001, 50]]),
+  };
+  const o2 = detectTriangular(eff, p)!;
+  check('efficient book -> not executable', !o2.executable, `net% ${o2.netProfitPct}`);
+
+  // Engine executes and accrues P&L.
+  const eng = new TriangularEngine({ ...p, cooldownMs: 0, startBalance: 100_000 });
+  eng.tick(tri);
+  const st = eng.getState();
+  check('engine executed 1 triangular trade', st.stats.trades === 1, `got ${st.stats.trades}`);
+  check('USDT balance grew', st.balanceUSDT > 100_000, `got ${st.balanceUSDT}`);
+  check('missing pair -> null', detectTriangular({ 'BTC/USDT': tri['BTC/USDT'] }, p) === null);
 }
 
 console.log(`\n==================  ${passed} passed, ${failed} failed  ==================\n`);
