@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ARB://TERMINAL — BTC Arbitrage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #06090a;
+    --panel: #0b1113;
+    --panel-2: #0e1618;
+    --line: #1a2629;
+    --text: #cfe0dc;
+    --dim: #5d716e;
+    --faint: #36474a;
+    --green: #3ef08a;
+    --green-dim: #14361f;
+    --red: #ff5269;
+    --red-dim: #3a1620;
+    --amber: #ffc24b;
+    --cyan: #41e6ff;
+    --glow: 0 0 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.35;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(1200px 600px at 80% -10%, rgba(62,240,138,0.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(65,230,255,0.05), transparent 60%),
+      linear-gradient(transparent 0, transparent 31px, rgba(255,255,255,0.012) 32px),
+      linear-gradient(90deg, transparent 0, transparent 31px, rgba(255,255,255,0.012) 32px);
+    background-size: auto, auto, 32px 32px, 32px 32px;
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 99;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.10) 3px);
+    mix-blend-mode: multiply; opacity: .5;
+  }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 18px 22px 40px; }
+
+  /* top bar */
+  .top { display: flex; align-items: center; gap: 18px; padding: 6px 2px 16px; border-bottom: 1px solid var(--line); }
+  .brand { font-weight: 800; letter-spacing: 3px; font-size: 18px; color: var(--text); }
+  .brand b { color: var(--green); text-shadow: var(--glow) rgba(62,240,138,.5); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: var(--glow) var(--green); animation: pulse 1.6s infinite; }
+  .dot.off { background: var(--red); box-shadow: var(--glow) var(--red); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .chip { border: 1px solid var(--line); padding: 3px 9px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; font-size: 11px; }
+  .chip b { color: var(--cyan); }
+  .spacer { flex: 1; }
+  .lat { color: var(--dim); font-size: 11px; letter-spacing: 1px; }
+  .lat b { color: var(--green); }
+
+  /* kpis */
+  .kpis { display: grid; grid-template-columns: 1.6fr repeat(5, 1fr); gap: 12px; margin: 16px 0; }
+  .kpi { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); padding: 12px 14px; position: relative; overflow: hidden; }
+  .kpi .lbl { color: var(--dim); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+  .kpi .val { font-size: 19px; font-weight: 700; margin-top: 6px; letter-spacing: .5px; }
+  .kpi.hero .val { font-size: 34px; font-weight: 800; }
+  .kpi .sub { color: var(--faint); font-size: 10px; margin-top: 2px; letter-spacing: 1px; }
+  .pos { color: var(--green); text-shadow: var(--glow) rgba(62,240,138,.35); }
+  .neg { color: var(--red); text-shadow: var(--glow) rgba(255,82,105,.35); }
+
+  /* layout */
+  .grid { display: grid; gap: 12px;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    grid-template-areas: "bin kra opps" "chart chart opps" "trades trades opps"; }
+  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; grid-template-areas: "bin" "kra" "opps" "chart" "trades"; } .kpis { grid-template-columns: 1fr 1fr; } }
+
+  .card { background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; }
+  .card > h3 { margin: 0; padding: 9px 13px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim);
+    border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+  .card > h3 .tag { margin-left: auto; color: var(--cyan); font-weight: 700; }
+
+  /* order book */
+  .book { }
+  .book.binance { grid-area: bin; } .book.kraken { grid-area: kra; }
+  .ob { padding: 6px 0; }
+  .row { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 2px 13px; font-size: 12px; z-index: 1; }
+  .row .px { font-weight: 500; } .row .sz { text-align: right; color: var(--dim); }
+  .row .bar { position: absolute; top: 0; bottom: 0; right: 0; z-index: -1; opacity: .16; }
+  .row.ask .px { color: var(--red); } .row.ask .bar { background: var(--red); }
+  .row.bid .px { color: var(--green); } .row.bid .bar { background: var(--green); }
+  .row.best .px { text-shadow: var(--glow) currentColor; }
+  .spread { display: flex; justify-content: space-between; padding: 5px 13px; margin: 4px 0; font-size: 11px;
+    color: var(--dim); letter-spacing: 1px; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
+  .spread b { color: var(--text); }
+
+  /* opportunities */
+  .opps { grid-area: opps; }
+  .opp { padding: 9px 13px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 4px; opacity: .55; }
+  .opp.exec { opacity: 1; background: linear-gradient(90deg, rgba(62,240,138,.07), transparent); border-left: 2px solid var(--green); }
+  .opp .dir { letter-spacing: .5px; }
+  .opp .dir .ar { color: var(--cyan); }
+  .opp .net { text-align: right; font-weight: 700; }
+  .opp .meta { color: var(--faint); font-size: 11px; }
+  .opp .rj { color: var(--amber); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; text-align: right; }
+
+  /* chart */
+  .chart { grid-area: chart; }
+  .chart .body { padding: 8px 6px 4px; }
+  canvas { width: 100%; height: 168px; display: block; }
+
+  /* trades */
+  .trades { grid-area: trades; }
+  .tr { display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; padding: 6px 13px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .tr .t { color: var(--faint); } .tr .pnl { text-align: right; font-weight: 700; }
+  .tr .part { color: var(--amber); font-size: 10px; }
+  .empty { padding: 16px 13px; color: var(--faint); font-size: 12px; }
+
+  .flash-up { animation: fu .6s ease-out; } .flash-down { animation: fd .6s ease-out; }
+  @keyframes fu { from { background: var(--green-dim); } } @keyframes fd { from { background: var(--red-dim); } }
+  .reveal { opacity: 0; transform: translateY(8px); animation: rv .5s forwards; }
+  @keyframes rv { to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <span id="dot" class="dot off"></span>
+    <span class="brand">ARB://<b>TERMINAL</b></span>
+    <span class="chip" id="symChip">— </span>
+    <span class="chip" id="modeChip">mode <b>—</b></span>
+    <span class="spacer"></span>
+    <span class="lat">data latency <b id="lat">—</b> · avg <b id="latAvg">—</b></span>
+    <span class="lat" id="conn">connecting…</span>
+  </div>
+
+  <div class="kpis" id="kpis">
+    <div class="kpi hero reveal"><div class="lbl">Realized P&amp;L</div><div class="val" id="pnl">$0.00</div><div class="sub" id="pnlSub">0 trades</div></div>
+    <div class="kpi reveal" style="animation-delay:.05s"><div class="lbl">Portfolio Value</div><div class="val" id="value">—</div><div class="sub" id="valueSub">mark —</div></div>
+    <div class="kpi reveal" style="animation-delay:.10s"><div class="lbl">Trades</div><div class="val" id="trades">0</div><div class="sub" id="tradesSub">0 partial</div></div>
+    <div class="kpi reveal" style="animation-delay:.15s"><div class="lbl">Opportunities</div><div class="val" id="opps">0</div><div class="sub">executable seen</div></div>
+    <div class="kpi reveal" style="animation-delay:.20s"><div class="lbl">Best Trade</div><div class="val pos" id="best">$0.00</div><div class="sub">single fill</div></div>
+    <div class="kpi reveal" style="animation-delay:.25s"><div class="lbl">Risk</div><div class="val" id="breaker">OK</div><div class="sub" id="ddSub">drawdown $0.00</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card book binance reveal" style="animation-delay:.10s"><h3>binance <span class="tag" id="binSpread">—</span></h3><div class="ob" id="binBook"></div></div>
+    <div class="card book kraken reveal" style="animation-delay:.15s"><h3>kraken <span class="tag" id="kraSpread">—</span></h3><div class="ob" id="kraBook"></div></div>
+    <div class="card opps reveal" style="animation-delay:.20s"><h3>opportunities <span class="tag">live</span></h3><div id="oppList"><div class="empty">scanning…</div></div></div>
+    <div class="card chart reveal" style="animation-delay:.25s"><h3>cumulative realized p&amp;l</h3><div class="body"><canvas id="chart"></canvas></div></div>
+    <div class="card trades reveal" style="animation-delay:.30s"><h3>execution log</h3><div id="tradeList"><div class="empty">no trades yet</div></div></div>
+  </div>
+</div>
+
+<script>
+const usd = n => (n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct = n => (n*100).toFixed(3)+'%';
+const cls = n => n>0?'pos':n<0?'neg':'';
+const prev = {};
+function setVal(id, text, signed){
+  const el = document.getElementById(id); if(!el) return;
+  if(el.textContent !== text){
+    if(prev[id] !== undefined){
+      const up = parseFloat(String(text).replace(/[^0-9.\-]/g,'')) >= parseFloat(String(prev[id]).replace(/[^0-9.\-]/g,''));
+      el.classList.remove('flash-up','flash-down'); void el.offsetWidth;
+      el.classList.add(up?'flash-up':'flash-down');
+    }
+    prev[id]=text; el.textContent=text;
+  }
+}
+
+function renderBook(elId, tagId, b){
+  const tag = document.getElementById(tagId);
+  const spread = b.bestAsk - b.bestBid;
+  tag.textContent = spread>0 ? 'spread '+usd(spread) : '—';
+  const maxSz = Math.max(0.0001, ...b.asks.concat(b.bids).map(l=>l.amount));
+  const askRows = b.asks.slice().reverse().map((l,i)=>row('ask', l, maxSz, i===b.asks.length-1)).join('');
+  const bidRows = b.bids.map((l,i)=>row('bid', l, maxSz, i===0)).join('');
+  document.getElementById(elId).innerHTML =
+    askRows +
+    `<div class="spread"><span>spread</span><span><b>${spread>0?usd(spread):'—'}</b></span></div>` +
+    bidRows;
+}
+function row(side, l, maxSz, isBest){
+  const w = Math.max(2, Math.round((l.amount/maxSz)*100));
+  return `<div class="row ${side}${isBest?' best':''}"><span class="px">${usd(l.price)}</span><span class="sz">${l.amount.toFixed(4)}</span><span class="bar" style="width:${w}%"></span></div>`;
+}
+
+function renderOpps(list){
+  const el = document.getElementById('oppList');
+  if(!list || !list.length){ el.innerHTML = '<div class="empty">scanning…</div>'; return; }
+  el.innerHTML = list.map(o=>{
+    const right = o.executable
+      ? `<span class="net pos">${usd(o.netProfit)}</span>`
+      : `<span class="rj">${o.rejectReason||'reject'}</span>`;
+    return `<div class="opp ${o.executable?'exec':''}">
+      <span class="dir">${o.buyExchange} <span class="ar">→</span> ${o.sellExchange}</span>
+      ${right}
+      <span class="meta">${usd(o.buyPrice)} → ${usd(o.sellPrice)} · ${o.amount.toFixed(4)} BTC</span>
+      <span class="meta" style="text-align:right">${o.executable?pct(o.netProfitPct):('gross '+pct(o.grossSpreadPct))}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderTrades(list){
+  const el = document.getElementById('tradeList');
+  if(!list || !list.length){ el.innerHTML = '<div class="empty">no trades yet</div>'; return; }
+  el.innerHTML = list.map(t=>{
+    const time = new Date(t.ts).toLocaleTimeString('en-GB');
+    return `<div class="tr"><span class="t">${time}</span>
+      <span>${t.buyExchange}→${t.sellExchange} · ${t.amount.toFixed(4)}${t.partial?' <span class="part">PARTIAL</span>':''}</span>
+      <span class="pnl ${cls(t.netProfit)}">${usd(t.netProfit)}</span></div>`;
+  }).join('');
+}
+
+const canvas = document.getElementById('chart');
+function drawChart(hist){
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr; ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  if(!hist || hist.length<2) return;
+  const ys = hist.map(p=>p.pnl);
+  const min = Math.min(0, ...ys), max = Math.max(1, ...ys);
+  const pad = 8;
+  const x = i => pad + (i/(hist.length-1))*(W-2*pad);
+  const y = v => H-pad - ((v-min)/(max-min))*(H-2*pad);
+  // zero baseline
+  ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad, y(0)); ctx.lineTo(W-pad, y(0)); ctx.stroke();
+  // area
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(62,240,138,.35)'); grad.addColorStop(1,'rgba(62,240,138,0)');
+  ctx.beginPath(); ctx.moveTo(x(0), y(ys[0]));
+  ys.forEach((v,i)=>ctx.lineTo(x(i), y(v)));
+  ctx.lineTo(x(ys.length-1), y(min)); ctx.lineTo(x(0), y(min)); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  // line
+  ctx.beginPath(); ys.forEach((v,i)=> i?ctx.lineTo(x(i),y(v)):ctx.moveTo(x(i),y(v)));
+  ctx.strokeStyle = '#3ef08a'; ctx.lineWidth = 1.8; ctx.shadowColor='rgba(62,240,138,.6)'; ctx.shadowBlur=8; ctx.stroke();
+  ctx.shadowBlur=0;
+}
+
+function render(s){
+  document.getElementById('symChip').textContent = s.symbol;
+  document.getElementById('modeChip').innerHTML = 'mode <b>'+String(s.mode).toUpperCase()+'</b>';
+  document.getElementById('lat').textContent = (s.bookAgeMs||0)+'ms';
+  document.getElementById('latAvg').textContent = (s.avgLatencyMs||0).toFixed(1)+'ms';
+
+  const pnlEl = document.getElementById('pnl');
+  pnlEl.className = 'val '+cls(s.stats.realizedPnl);
+  setVal('pnl', usd(s.stats.realizedPnl));
+  document.getElementById('pnlSub').textContent = s.stats.tradesExecuted+' trades';
+  setVal('value', usd(s.portfolio.totalValueQuote));
+  document.getElementById('valueSub').textContent = 'mark '+usd(s.markPrice);
+  setVal('trades', String(s.stats.tradesExecuted));
+  document.getElementById('tradesSub').textContent = s.stats.partialTrades+' partial';
+  setVal('opps', String(s.stats.opportunitiesSeen));
+  setVal('best', usd(s.stats.bestTradePnl));
+
+  const brk = document.getElementById('breaker');
+  if(s.risk.breakerActive){ brk.textContent='TRIPPED'; brk.className='val neg'; }
+  else { brk.textContent='OK'; brk.className='val pos'; }
+  document.getElementById('ddSub').textContent = 'drawdown '+usd(s.risk.drawdown||0)+(s.risk.tripReason?(' · '+s.risk.tripReason):'');
+
+  (s.books||[]).forEach(b=>{
+    if(b.exchange==='binance') renderBook('binBook','binSpread',b);
+    else if(b.exchange==='kraken') renderBook('kraBook','kraSpread',b);
+  });
+  renderOpps(s.opportunities);
+  renderTrades(s.trades);
+  drawChart(s.pnlHistory);
+}
+
+function connect(){
+  const es = new EventSource('/stream');
+  es.onopen = ()=>{ document.getElementById('dot').className='dot'; document.getElementById('conn').textContent='● connected'; };
+  es.onerror = ()=>{ document.getElementById('dot').className='dot off'; document.getElementById('conn').textContent='reconnecting…'; };
+  es.onmessage = e => { try { render(JSON.parse(e.data)); } catch(err){} };
+}
+connect();
+window.addEventListener('resize', ()=>{ /* canvas redraws on next frame */ });
+</script>
+</body>
+</html>

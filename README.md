@@ -25,6 +25,18 @@ SOURCE=live-rest npm run cli
 npm test
 ```
 
+### Web dashboard
+
+```bash
+npm run server                       # dashboard on http://localhost:8080 (simulated)
+SOURCE=live npm run server           # dashboard driven by live Binance + Kraken
+PORT=80 SOURCE=live npm run server   # bind a public port on the server
+```
+
+The dashboard streams live state over Server-Sent Events (no extra dependency):
+order books with depth bars, the ranked opportunity feed, the execution log, a
+cumulative P&L chart, and live data-latency. Open the URL in a browser.
+
 Useful env vars: `SOURCE`, `TICKS`, `INTERVAL_MS`, `KRAKEN_CHECKSUM=1`,
 `MIN_NET_PROFIT_PCT`, `MAX_TRADE_SIZE_BTC`, `POLL_INTERVAL_MS`, `SLIPPAGE_BUFFER_PCT`.
 
@@ -68,6 +80,8 @@ simulated feed, or live exchanges.
 | `exchanges/ws-source.ts` | Event-driven WebSocket data source (lowest latency) |
 | `exchanges/live.ts` | ccxt REST polling source (fallback) |
 | `cli/main.ts` | Console dashboard consuming the engine |
+| `server/index.ts` | HTTP + SSE server: runs the engine, streams state to the browser |
+| `server/public/index.html` | Live web dashboard (terminal aesthetic) |
 
 ## Low latency (the design)
 
@@ -111,11 +125,27 @@ Done: domain model, order-book VWAP, detection, net profitability + optimal
 sizing, simulated execution + wallets + partial fills, risk/circuit breaker,
 engine orchestrator, **event-driven WebSocket feed (Binance + Kraken) with
 incremental local books, sequence validation and CRC32 integrity**, ccxt REST
-fallback, console dashboard with live latency, 65 passing tests.
+fallback, console dashboard, **live web dashboard over SSE**, 65 passing tests.
 
-Next: web dashboard (live order books, opportunity feed, trade log, P&L chart) +
-deploy; inventory rebalancing; triangular / statistical arbitrage strategies;
-persistence.
+Next: inventory rebalancing; triangular / statistical arbitrage strategies;
+persistence (history survives restarts).
+
+## Deploy (single process)
+
+The whole system is one Node process — ideal for a small VPS:
+
+```bash
+npm install
+PORT=8080 SOURCE=live npm run server
+```
+
+Keep it alive with pm2 or systemd and expose port 8080 (open the firewall, or put
+nginx/Caddy in front for TLS + a domain). Example:
+
+```bash
+npm i -g pm2
+PORT=8080 SOURCE=live pm2 start "npm run server" --name arb && pm2 save
+```
 
 ## Disclaimer
 
