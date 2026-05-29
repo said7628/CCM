@@ -24,7 +24,7 @@ export class BinanceWsClient {
   lastMessageAt = 0;
 
   constructor(
-    private symbol: string,
+    symbol: string,
     depth: number,
     private onUpdate: () => void,
   ) {

@@ -4,11 +4,11 @@
   "description": "Real-time BTC arbitrage detection and simulated execution engine",
   "type": "commonjs",
   "scripts": {
-    "cli": "ts-node src/cli/main.ts",
-    "server": "ts-node src/server/index.ts",
+    "cli": "ts-node --transpile-only src/cli/main.ts",
+    "server": "ts-node --transpile-only src/server/index.ts",
     "build": "tsc",
     "start": "node dist/cli/main.js",
-    "test": "ts-node test/run.ts",
+    "test": "ts-node --transpile-only test/run.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
