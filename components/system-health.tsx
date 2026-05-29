@@ -1,6 +1,7 @@
 "use client";
 
-import { Wifi, BarChart2, Zap, Database, CheckCircle2 } from "lucide-react";
+import { memo } from "react";
+import { Wifi, BarChart2, Zap, Database, CheckCircle2, Gauge } from "lucide-react";
 
 interface SystemHealthData {
   uptime: number;
@@ -9,6 +10,8 @@ interface SystemHealthData {
   execution: string;
   database: string;
   lastCheck: number;
+  visualLatencyMs: number;
+  updatesPerSecond: number;
 }
 
 interface SystemHealthProps {
@@ -35,7 +38,7 @@ function StatusItem({
   );
 }
 
-export function SystemHealth({ data }: SystemHealthProps) {
+function SystemHealthComponent({ data }: SystemHealthProps) {
   const circumference = 2 * Math.PI * 70;
   const strokeDashoffset = circumference - (data.uptime / 100) * circumference;
 
@@ -105,15 +108,22 @@ export function SystemHealth({ data }: SystemHealthProps) {
           label="Base de datos"
           status={data.database}
         />
+        <StatusItem
+          icon={<Gauge className="w-4 h-4" />}
+          label="Render visual"
+          status={`${data.visualLatencyMs.toFixed(1)} ms · ${data.updatesPerSecond.toFixed(1)} ups`}
+        />
       </div>
 
       {/* Footer */}
       <div className="flex items-center gap-2 pt-4 border-t border-slate-200 text-slate-500">
         <CheckCircle2 className="w-4 h-4 text-cyan-600" />
         <span className="text-xs">
-          Última verificación: hace {data.lastCheck} segundos
+          Edad del dato crítico: {data.lastCheck} ms
         </span>
       </div>
     </div>
   );
 }
+
+export const SystemHealth = memo(SystemHealthComponent);

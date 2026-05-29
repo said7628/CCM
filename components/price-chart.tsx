@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Maximize2 } from "lucide-react";
 import {
   LineChart,
@@ -31,7 +31,7 @@ const series = [
   { key: "okx", label: "OKX", color: "#111827" },
 ] as const;
 
-export function PriceChart({ data }: PriceChartProps) {
+function PriceChartComponent({ data }: PriceChartProps) {
   const [activeFilter, setActiveFilter] = useState("5M");
 
   return (
@@ -140,3 +140,5 @@ export function PriceChart({ data }: PriceChartProps) {
     </div>
   );
 }
+
+export const PriceChart = memo(PriceChartComponent);

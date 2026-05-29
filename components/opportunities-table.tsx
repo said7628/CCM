@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { ArrowRight } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { getExchangeVisualConfig } from "@/lib/exchange-visuals";
@@ -48,7 +49,7 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
+function OpportunitiesTableComponent({ opportunities }: OpportunitiesTableProps) {
   return (
     <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-[0_18px_60px_rgba(7,43,78,0.065)] transition duration-300 hover:shadow-[0_24px_70px_rgba(7,43,78,0.1)] md:p-6">
       <div className="mb-5 flex items-center justify-between gap-4">
@@ -99,3 +100,5 @@ export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
     </div>
   );
 }
+
+export const OpportunitiesTable = memo(OpportunitiesTableComponent);

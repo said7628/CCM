@@ -22,7 +22,11 @@ export default function Dashboard() {
       <Sidebar />
 
       <div className="lg:ml-72">
-        <Header connected={data.connected} />
+        <Header
+          connected={data.connected}
+          visualLatencyMs={data.telemetry.visualLatencyMs}
+          updatesPerSecond={data.telemetry.updatesPerSecond}
+        />
 
         <main className="mx-auto max-w-[1800px] px-5 py-6 lg:px-8 lg:py-8">
           <HeroSection />

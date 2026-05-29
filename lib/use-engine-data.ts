@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getExchangeVisualConfig, normalizeExchangeName } from "@/lib/exchange-visuals";
 
 /**
@@ -14,6 +14,9 @@ import { getExchangeVisualConfig, normalizeExchangeName } from "@/lib/exchange-v
  * NEXT_PUBLIC_ENGINE_URL (defaults to same-origin /stream for production behind
  * one reverse proxy).
  */
+
+const CHART_SAMPLE_MS = 250;
+const TELEMETRY_LOG_MS = 1000;
 
 const STATUS_LABEL: Record<string, string> = {
   negative_net: "Fees exceeded spread",
@@ -49,9 +52,17 @@ export interface EngineData {
   balances: Array<{ name: string; value: number; percent: number; color: string }>;
   riskMetrics: ReturnType<typeof emptyRisk>;
   costBreakdown: { grossProfit: number; tradingFees: number; slippage: number; latencyPenalty: number; netProfit: number };
-  systemHealth: { uptime: number; connectivity: string; marketFeeds: string; execution: string; database: string; lastCheck: number };
+  systemHealth: { uptime: number; connectivity: string; marketFeeds: string; execution: string; database: string; lastCheck: number; visualLatencyMs: number; updatesPerSecond: number };
   triangular: { enabled: boolean; exchange?: string; path?: string; netPct?: number; loops?: number; pnl?: number; bestPct?: number; executable?: boolean };
   paused: boolean;
+  telemetry: {
+    streamSeq: number;
+    dataReceivedAt: number;
+    renderedAt: number;
+    visualLatencyMs: number;
+    updatesPerSecond: number;
+    transportLatencyMs: number | null;
+  };
 }
 
 function emptyKpis() {
@@ -93,29 +104,99 @@ function initialData(): EngineData {
     balances: [],
     riskMetrics: emptyRisk(),
     costBreakdown: { grossProfit: 0, tradingFees: 0, slippage: 0, latencyPenalty: 0, netProfit: 0 },
-    systemHealth: { uptime: 100, connectivity: "Óptima", marketFeeds: "Óptimos", execution: "Óptima", database: "Óptima", lastCheck: 0 },
+    systemHealth: { uptime: 100, connectivity: "Óptima", marketFeeds: "Óptimos", execution: "Óptima", database: "Óptima", lastCheck: 0, visualLatencyMs: 0, updatesPerSecond: 0 },
     triangular: { enabled: false },
     paused: false,
+    telemetry: { streamSeq: 0, dataReceivedAt: 0, renderedAt: 0, visualLatencyMs: 0, updatesPerSecond: 0, transportLatencyMs: null },
   };
+}
+
+function resolveStreamUrl(): string {
+  const explicitStream = process.env.NEXT_PUBLIC_ENGINE_STREAM_URL;
+  if (explicitStream) return explicitStream;
+
+  const base = process.env.NEXT_PUBLIC_ENGINE_URL ?? "";
+  return `${base}/stream`;
 }
 
 export function useEngineData(): EngineData {
   const [data, setData] = useState<EngineData>(initialData);
   const priceSeriesRef = useRef<PricePoint[]>([]);
+  const pendingDataRef = useRef<EngineData | null>(null);
+  const pendingReceivedAtRef = useRef(0);
+  const frameRef = useRef<number | null>(null);
+  const lastChartSampleRef = useRef(0);
+  const telemetryRef = useRef({ windowStartedAt: 0, ticks: 0, updatesPerSecond: 0, lastLogAt: 0 });
+  const streamUrl = useMemo(resolveStreamUrl, []);
 
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_ENGINE_URL ?? "";
-    const es = new EventSource(`${base}/stream`);
+    const es = new EventSource(streamUrl);
+
+    const schedulePaint = (nextData: EngineData, dataReceivedAt: number) => {
+      pendingDataRef.current = nextData;
+      pendingReceivedAtRef.current = dataReceivedAt;
+      if (frameRef.current !== null) return;
+
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        const pending = pendingDataRef.current;
+        pendingDataRef.current = null;
+        if (!pending) return;
+
+        const renderedAt = performance.now();
+        const visualLatencyMs = Number((renderedAt - pendingReceivedAtRef.current).toFixed(2));
+        const telemetry = {
+          ...pending.telemetry,
+          renderedAt: Number(renderedAt.toFixed(2)),
+          visualLatencyMs,
+        };
+
+        const next = {
+          ...pending,
+          telemetry,
+          systemHealth: {
+            ...pending.systemHealth,
+            visualLatencyMs,
+            updatesPerSecond: telemetry.updatesPerSecond,
+          },
+        };
+
+        setData(next);
+
+        if (renderedAt - telemetryRef.current.lastLogAt >= TELEMETRY_LOG_MS) {
+          telemetryRef.current.lastLogAt = renderedAt;
+          console.debug("[realtime-latency]", {
+            streamSeq: telemetry.streamSeq,
+            dataReceivedAt: telemetry.dataReceivedAt,
+            renderedAt: telemetry.renderedAt,
+            visualLatencyMs: telemetry.visualLatencyMs,
+            updatesPerSecond: telemetry.updatesPerSecond,
+            transportLatencyMs: telemetry.transportLatencyMs,
+          });
+        }
+      });
+    };
 
     es.onopen = () => setData((d) => ({ ...d, connected: true }));
     es.onerror = () => setData((d) => ({ ...d, connected: false }));
 
     es.onmessage = (e) => {
+      const dataReceivedAt = performance.now();
+      const nowWall = Date.now();
       let s: Record<string, any>;
       try {
         s = JSON.parse(e.data);
       } catch {
         return;
+      }
+
+      if (telemetryRef.current.windowStartedAt === 0) telemetryRef.current.windowStartedAt = dataReceivedAt;
+      telemetryRef.current.ticks += 1;
+      const windowMs = dataReceivedAt - telemetryRef.current.windowStartedAt;
+      if (windowMs >= 1000) {
+        telemetryRef.current.updatesPerSecond = Number(((telemetryRef.current.ticks * 1000) / windowMs).toFixed(1));
+        telemetryRef.current.windowStartedAt = dataReceivedAt;
+        telemetryRef.current.ticks = 0;
       }
 
       const books: Array<any> = s.books ?? [];
@@ -141,26 +222,31 @@ export function useEngineData(): EngineData {
       });
 
       // --- Comparative price chart (rolling window of per-exchange mids) ---
-      const point: PricePoint = {
-        time: new Date(s.ts ?? Date.now()).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        binance: null, coinbase: null, kraken: null, okx: null,
-      };
-      for (const b of books) {
-        const bid = safeNumber(b.bestBid);
-        const ask = safeNumber(b.bestAsk);
-        const mid = bid && ask ? (bid + ask) / 2 : ask || bid;
-        const key = chartExchangeKey(b.exchange);
-        if (key && key !== "time") point[key] = Math.round(mid * 100) / 100;
-      }
-      // Carry forward the previous value for venues absent this tick so lines stay continuous.
-      const prevPoint = priceSeriesRef.current[priceSeriesRef.current.length - 1];
-      if (prevPoint) {
-        for (const k of ["binance", "coinbase", "kraken", "okx"] as const) {
-          if (point[k] === null && typeof prevPoint[k] === "number") point[k] = prevPoint[k];
+      const shouldSampleChart = dataReceivedAt - lastChartSampleRef.current >= CHART_SAMPLE_MS;
+      let series = priceSeriesRef.current;
+      if (shouldSampleChart) {
+        lastChartSampleRef.current = dataReceivedAt;
+        const point: PricePoint = {
+          time: new Date(s.ts ?? nowWall).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          binance: null, coinbase: null, kraken: null, okx: null,
+        };
+        for (const b of books) {
+          const bid = safeNumber(b.bestBid);
+          const ask = safeNumber(b.bestAsk);
+          const mid = bid && ask ? (bid + ask) / 2 : ask || bid;
+          const key = chartExchangeKey(b.exchange);
+          if (key && key !== "time") point[key] = Math.round(mid * 100) / 100;
         }
+        // Carry forward the previous value for venues absent this tick so lines stay continuous.
+        const prevPoint = priceSeriesRef.current[priceSeriesRef.current.length - 1];
+        if (prevPoint) {
+          for (const k of ["binance", "coinbase", "kraken", "okx"] as const) {
+            if (point[k] === null && typeof prevPoint[k] === "number") point[k] = prevPoint[k];
+          }
+        }
+        series = [...priceSeriesRef.current, point].slice(-40);
+        priceSeriesRef.current = series;
       }
-      const series = [...priceSeriesRef.current, point].slice(-40);
-      priceSeriesRef.current = series;
 
       // --- Opportunities (volume + profit in USD, readable status) ---
       const opportunities = (s.opportunities ?? []).map((o: any, i: number) => ({
@@ -176,7 +262,7 @@ export function useEngineData(): EngineData {
       // --- Recent operations (execution log table) ---
       const operations = (s.trades ?? []).map((t: any, i: number) => ({
         id: i + 1,
-        time: new Date(t.ts ?? Date.now()).toLocaleTimeString("en-GB"),
+        time: new Date(t.ts ?? nowWall).toLocaleTimeString("en-GB"),
         buyExchange: normalizeExchangeName(t.buyExchange),
         sellExchange: normalizeExchangeName(t.sellExchange),
         pair: s.symbol ?? "BTC/USDT",
@@ -251,6 +337,15 @@ export function useEngineData(): EngineData {
           }
         : { enabled: false };
 
+      const telemetry = {
+        streamSeq: safeNumber(s.streamSeq),
+        dataReceivedAt: Number(dataReceivedAt.toFixed(2)),
+        renderedAt: 0,
+        visualLatencyMs: 0,
+        updatesPerSecond: telemetryRef.current.updatesPerSecond,
+        transportLatencyMs: typeof s.emittedAt === "number" ? Math.max(0, nowWall - s.emittedAt) : null,
+      };
+
       const systemHealth = {
         uptime: 100,
         connectivity: books.length >= 2 ? "Óptima" : "Degradada",
@@ -258,9 +353,11 @@ export function useEngineData(): EngineData {
         execution: riskState.breakerActive ? "Pausada" : "Óptima",
         database: "Óptima",
         lastCheck: Math.round((s.bookAgeMs ?? 0)),
+        visualLatencyMs: telemetry.visualLatencyMs,
+        updatesPerSecond: telemetry.updatesPerSecond,
       };
 
-      setData({
+      schedulePaint({
         connected: true,
         kpis,
         exchangePrices,
@@ -273,11 +370,15 @@ export function useEngineData(): EngineData {
         systemHealth,
         triangular,
         paused: Boolean(s.paused),
-      });
+        telemetry,
+      }, dataReceivedAt);
     };
 
-    return () => es.close();
-  }, []);
+    return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      es.close();
+    };
+  }, [streamUrl]);
 
   return data;
 }

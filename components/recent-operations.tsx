@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { ArrowRight } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { getExchangeVisualConfig } from "@/lib/exchange-visuals";
@@ -47,7 +48,7 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${className}`}>{status}</span>;
 }
 
-export function RecentOperations({ operations }: RecentOperationsProps) {
+function RecentOperationsComponent({ operations }: RecentOperationsProps) {
   return (
     <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-5 shadow-[0_18px_60px_rgba(7,43,78,0.065)] transition duration-300 hover:shadow-[0_24px_70px_rgba(7,43,78,0.1)] md:p-6">
       <div className="mb-5 flex items-center justify-between gap-4">
@@ -104,3 +105,5 @@ export function RecentOperations({ operations }: RecentOperationsProps) {
     </div>
   );
 }
+
+export const RecentOperations = memo(RecentOperationsComponent);

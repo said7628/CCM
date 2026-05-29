@@ -118,12 +118,22 @@ async function main(): Promise<void> {
 
   const pnlHistory: { t: number; pnl: number; value: number }[] = [];
   let latest: object | null = null;
+  let streamSeq = 0;
+  const clients = new Set<http.ServerResponse>();
+
+  const broadcastLatest = (): void => {
+    if (!latest) return;
+    const frame = `data: ${JSON.stringify(latest)}\n\n`;
+    for (const res of clients) res.write(frame);
+  };
 
   const onTick = (state: TickResult, books: OrderBook[]): void => {
     const stats = engine.getStats();
     const trades = engine.getTrades().slice(-14).reverse();
     latest = {
       ts: state.timestamp,
+      streamSeq: ++streamSeq,
+      emittedAt: Date.now(),
       mode,
       symbol: trading.symbol,
       exchanges: trading.exchanges,
@@ -155,6 +165,7 @@ async function main(): Promise<void> {
       pnlHistory,
       triangular: triEngine ? triEngine.getState() : { enabled: false },
     };
+    broadcastLatest();
   };
 
   // Drive the engine.
@@ -189,13 +200,12 @@ async function main(): Promise<void> {
     if (pnlHistory.length > PNL_HISTORY_MAX) pnlHistory.shift();
   }, 500);
 
-  // SSE clients.
-  const clients = new Set<http.ServerResponse>();
+  // SSE clients receive every real engine tick immediately. A lightweight
+  // heartbeat keeps proxies from closing idle streams without replaying stale
+  // market data as if it were a new tick.
   setInterval(() => {
-    if (!latest) return;
-    const frame = `data: ${JSON.stringify(latest)}\n\n`;
-    for (const res of clients) res.write(frame);
-  }, 50);
+    for (const res of clients) res.write(': heartbeat\n\n');
+  }, 15_000);
 
 
   const server = http.createServer((req, res) => {

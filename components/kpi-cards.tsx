@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   CheckCircle2,
   GaugeCircle,
@@ -59,7 +60,7 @@ function SecondaryMetric({
   );
 }
 
-export function KPICards({ data }: KPICardsProps) {
+function KPICardsComponent({ data }: KPICardsProps) {
   const pnlSparkline = generateSparklineData(data.pnl, 16, 0.012);
 
   return (
@@ -164,3 +165,5 @@ export function KPICards({ data }: KPICardsProps) {
     </section>
   );
 }
+
+export const KPICards = memo(KPICardsComponent);

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { ArrowRight } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { formatCurrency } from "@/lib/utils";
@@ -15,7 +16,7 @@ interface BalancesChartProps {
   balances: Balance[];
 }
 
-export function BalancesChart({ balances }: BalancesChartProps) {
+function BalancesChartComponent({ balances }: BalancesChartProps) {
   const total = balances.reduce((sum, b) => sum + b.value, 0);
 
   return (
@@ -90,3 +91,5 @@ export function BalancesChart({ balances }: BalancesChartProps) {
     </div>
   );
 }
+
+export const BalancesChart = memo(BalancesChartComponent);

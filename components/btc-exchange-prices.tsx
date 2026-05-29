@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { getExchangeVisualConfig } from "@/lib/exchange-visuals";
 import { formatCurrency } from "@/lib/utils";
@@ -17,7 +18,7 @@ interface BtcExchangePricesProps {
   prices: ExchangePrice[];
 }
 
-export function BtcExchangePrices({ prices }: BtcExchangePricesProps) {
+function BtcExchangePricesComponent({ prices }: BtcExchangePricesProps) {
   const safePrices = prices.filter((item) => Number.isFinite(item.price));
   const minPrice = safePrices.length ? Math.min(...safePrices.map((item) => item.price)) : 0;
   const maxPrice = safePrices.length ? Math.max(...safePrices.map((item) => item.price)) : 0;
@@ -107,3 +108,5 @@ export function BtcExchangePrices({ prices }: BtcExchangePricesProps) {
     </section>
   );
 }
+
+export const BtcExchangePrices = memo(BtcExchangePricesComponent);

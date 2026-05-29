@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { formatCurrency } from "@/lib/utils";
 
 interface CostBreakdownProps {
@@ -12,7 +13,7 @@ interface CostBreakdownProps {
   };
 }
 
-export function CostBreakdown({ data }: CostBreakdownProps) {
+function CostBreakdownComponent({ data }: CostBreakdownProps) {
   const costs = [
     { label: "Trading fees", value: data.tradingFees },
     { label: "Slippage", value: data.slippage },
@@ -66,3 +67,5 @@ export function CostBreakdown({ data }: CostBreakdownProps) {
     </div>
   );
 }
+
+export const CostBreakdown = memo(CostBreakdownComponent);
