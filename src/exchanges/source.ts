@@ -8,6 +8,7 @@
  * touching the engine, CLI, or web layer.
  */
 import type { OrderBook, PriceLevel } from '../domain/types';
+import { EventEmitter } from 'events';
 
 export interface MarketDataSource {
   readonly name: string;
@@ -22,6 +23,12 @@ export interface MarketDataSource {
    * sources poll/stream in the background, so they don't implement this.
    */
   advance?(): void;
+  /**
+   * Optional: subscribe to push updates (event-driven sources: WebSocket and the
+   * streaming simulator). When present, consumers react the instant data
+   * arrives instead of polling on a clock — the low-latency path.
+   */
+  onUpdate?(cb: () => void): void;
 }
 
 interface SimConfig {
@@ -37,6 +44,8 @@ interface SimConfig {
   depth: number;
   /** Seed for deterministic runs (tests). */
   seed?: number;
+  /** If set, the source self-advances and emits 'update' on this interval (ms). */
+  streamIntervalMs?: number;
 }
 
 const DEFAULT_SIM: SimConfig = {
@@ -67,14 +76,16 @@ function makeRng(seed: number): () => number {
  * genuine cross-exchange arbitrage (ask on one < bid on the other) so the engine
  * has something real to find.
  */
-export class SimulatedSource implements MarketDataSource {
+export class SimulatedSource extends EventEmitter implements MarketDataSource {
   readonly name = 'simulated';
   private cfg: SimConfig;
   private rng: () => number;
   private mids: Record<string, number>;
   private books: OrderBook[] = [];
+  private streamTimer?: NodeJS.Timeout;
 
   constructor(cfg: Partial<SimConfig> = {}) {
+    super();
     this.cfg = { ...DEFAULT_SIM, ...cfg };
     this.rng = makeRng(this.cfg.seed ?? Date.now());
     this.mids = {};
@@ -83,10 +94,20 @@ export class SimulatedSource implements MarketDataSource {
   }
 
   async start(): Promise<void> {
-    /* nothing to connect for the simulator */
+    if (this.cfg.streamIntervalMs && this.cfg.streamIntervalMs > 0) {
+      this.streamTimer = setInterval(() => {
+        this.regenerate();
+        this.emit('update');
+      }, this.cfg.streamIntervalMs);
+    }
   }
   async stop(): Promise<void> {
-    /* no-op */
+    if (this.streamTimer) clearInterval(this.streamTimer);
+    this.streamTimer = undefined;
+  }
+
+  onUpdate(cb: () => void): void {
+    this.on('update', cb);
   }
 
   getBooks(): OrderBook[] {

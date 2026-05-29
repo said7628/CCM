@@ -43,6 +43,8 @@ export interface TickResult {
   haltedByRisk: boolean;
   snapshot: PortfolioSnapshot;
   risk: RiskState;
+  /** Age (ms) of the freshest order book at decision time — our data latency. */
+  bookAgeMs: number;
 }
 
 export interface EngineStats {
@@ -67,6 +69,9 @@ export class ArbitrageEngine {
     bestTradePnl: 0,
   };
   private readonly maxHistory = 500;
+  private lastExecAt = 0;
+  private latencySum = 0;
+  private latencySamples = 0;
 
   constructor(
     private wallets: WalletManager,
@@ -81,6 +86,11 @@ export class ArbitrageEngine {
   tick(books: OrderBook[]): TickResult {
     const now = Date.now();
     this.stats.ticks += 1;
+
+    const freshest = books.reduce((m, b) => Math.max(m, b.timestamp), 0);
+    const bookAgeMs = freshest > 0 ? now - freshest : 0;
+    this.latencySum += bookAgeMs;
+    this.latencySamples += 1;
 
     const markPrice = computeMark(books);
 
@@ -104,6 +114,9 @@ export class ArbitrageEngine {
     if (best) {
       if (!this.risk.canTrade(now)) {
         haltedByRisk = true;
+      } else if (now - this.lastExecAt < this.deps.trading.executionCooldownMs) {
+        // Within the execution cooldown: assume the previous fill consumed this
+        // edge; wait for the book to move before firing again.
       } else {
         const buyBook = books.find((b) => b.exchange === best.buyExchange);
         const sellBook = books.find((b) => b.exchange === best.sellExchange);
@@ -120,6 +133,7 @@ export class ArbitrageEngine {
           if (trade) {
             this.wallets.applyTrade(trade);
             executed = trade;
+            this.lastExecAt = now;
             this.trades.push(trade);
             if (this.trades.length > this.maxHistory) this.trades.shift();
             this.stats.tradesExecuted += 1;
@@ -142,7 +156,13 @@ export class ArbitrageEngine {
       haltedByRisk,
       snapshot: this.wallets.snapshot(markPrice),
       risk: this.risk.getState(),
+      bookAgeMs,
     };
+  }
+
+  /** Average data latency (book age at decision) across all ticks, in ms. */
+  avgLatencyMs(): number {
+    return this.latencySamples > 0 ? this.latencySum / this.latencySamples : 0;
   }
 
   getTrades(): Trade[] {

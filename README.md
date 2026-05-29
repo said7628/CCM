@@ -11,18 +11,22 @@ swappable architecture.
 ```bash
 npm install
 
-# Run the bot on a deterministic SIMULATED feed (no network, great for a demo):
-npm run cli
+# Deterministic SIMULATED feed (no network, great for a demo):
+npm run cli                      # stepped
+SOURCE=sim-stream npm run cli    # event-driven (same path as live WS)
 
-# Run against LIVE Binance + Kraken order books (needs internet):
+# LIVE low-latency feed — Binance + Kraken over WebSocket:
 SOURCE=live npm run cli
 
-# Run the test suite (51 assertions on the pure engine logic):
+# LIVE via ccxt REST polling (fallback, higher latency):
+SOURCE=live-rest npm run cli
+
+# Test suite (65 assertions on the pure engine + book logic):
 npm test
 ```
 
-Useful env vars: `TICKS`, `INTERVAL_MS`, `SOURCE=live|sim`, `MIN_NET_PROFIT_PCT`,
-`MAX_TRADE_SIZE_BTC`, `POLL_INTERVAL_MS`, `SLIPPAGE_BUFFER_PCT`.
+Useful env vars: `SOURCE`, `TICKS`, `INTERVAL_MS`, `KRAKEN_CHECKSUM=1`,
+`MIN_NET_PROFIT_PCT`, `MAX_TRADE_SIZE_BTC`, `POLL_INTERVAL_MS`, `SLIPPAGE_BUFFER_PCT`.
 
 ## Architecture
 
@@ -58,8 +62,26 @@ simulated feed, or live exchanges.
 | `engine/risk.ts` | **Circuit breaker** on consecutive losses / drawdown + cooldown |
 | `engine/engine.ts` | Orchestrates one full decision cycle per `tick()` |
 | `exchanges/source.ts` | `MarketDataSource` interface + deterministic simulator |
-| `exchanges/live.ts` | Live ccxt connector (REST polling; WS upgrade path documented) |
+| `exchanges/localbook.ts` | Incremental local order book + CRC32 (integrity) |
+| `exchanges/binance-sync.ts` | Binance diff-stream sequence validation (resync on gap) |
+| `exchanges/binance-ws.ts` · `kraken-ws.ts` | Live WebSocket clients |
+| `exchanges/ws-source.ts` | Event-driven WebSocket data source (lowest latency) |
+| `exchanges/live.ts` | ccxt REST polling source (fallback) |
 | `cli/main.ts` | Console dashboard consuming the engine |
+
+## Low latency (the design)
+
+- **Event-driven, not clock-driven.** WebSocket clients push an update the
+  instant a book changes and the engine evaluates immediately — no waiting for a
+  poll interval. Measured data latency in event mode is sub-millisecond; the
+  dashboard shows it live (`data latency`).
+- **Incrementally-maintained local books.** We apply diffs to a local book
+  (price→size maps) rather than re-fetching, so each update is O(changed levels).
+- **Correctness under speed.** Binance diff events are sequence-validated
+  (`U`/`u`) with automatic REST resync on any gap; Kraken offers a CRC32 checksum
+  we can validate (opt-in) and resync on mismatch. Both are unit-tested.
+- **Execution cooldown.** A standing edge fires once, not on every tick, so the
+  bot doesn't over-trade a single divergence at WebSocket speed.
 
 ## Key design decisions
 
@@ -87,12 +109,13 @@ simulated feed, or live exchanges.
 
 Done: domain model, order-book VWAP, detection, net profitability + optimal
 sizing, simulated execution + wallets + partial fills, risk/circuit breaker,
-engine orchestrator, simulated feed, live ccxt connector (REST), console
-dashboard, 51 passing tests.
+engine orchestrator, **event-driven WebSocket feed (Binance + Kraken) with
+incremental local books, sequence validation and CRC32 integrity**, ccxt REST
+fallback, console dashboard with live latency, 65 passing tests.
 
-Next: WebSocket streaming for lower latency; web dashboard (live order books,
-opportunity feed, trade log, P&L chart); inventory rebalancing; triangular /
-statistical arbitrage strategies; persistence.
+Next: web dashboard (live order books, opportunity feed, trade log, P&L chart) +
+deploy; inventory rebalancing; triangular / statistical arbitrage strategies;
+persistence.
 
 ## Disclaimer
 

@@ -68,6 +68,14 @@ export interface TradingConfig {
 
   /** Depth (number of price levels) to request/track per side. */
   orderBookDepth: number;
+
+  /**
+   * Minimum time between executions (ms). In event-driven mode a single standing
+   * divergence would otherwise fire on every book tick; this throttles us to one
+   * fill per edge until the book meaningfully changes, which is realistic (our
+   * fill would consume that liquidity) and prevents draining inventory.
+   */
+  executionCooldownMs: number;
 }
 
 /** Risk-management parameters consumed by the risk layer (Phase 5). */
@@ -93,6 +101,7 @@ export const DEFAULT_TRADING: TradingConfig = {
   maxQuoteAgeMs: 2000,
   pollIntervalMs: 1000,
   orderBookDepth: 20,
+  executionCooldownMs: 250,
 };
 
 export const DEFAULT_RISK: RiskConfig = {

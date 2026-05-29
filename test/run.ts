@@ -15,6 +15,8 @@ import { executeOpportunity } from '../src/engine/executor';
 import { WalletManager } from '../src/engine/wallet';
 import { RiskManager } from '../src/engine/risk';
 import { ArbitrageEngine } from '../src/engine/engine';
+import { LocalOrderBook, crc32 } from '../src/exchanges/localbook';
+import { BinanceBookSyncer } from '../src/exchanges/binance-sync';
 
 // ---- tiny test harness ----
 let passed = 0;
@@ -59,6 +61,7 @@ function cfg(overrides: Partial<TradingConfig> = {}): TradingConfig {
     maxQuoteAgeMs: 60_000,
     pollIntervalMs: 1000,
     orderBookDepth: 20,
+    executionCooldownMs: 0,
     ...overrides,
   };
 }
@@ -309,6 +312,53 @@ console.log('\n=== 15. engine: end-to-end tick executes & accrues, idle when fla
   const flat2 = book('kraken', [[69990, 5]], [[70010, 5]]);
   const r2 = engine.tick([flat1, flat2]);
   check('idle when no opportunity', r2.executed === null && r2.best === null);
+}
+
+console.log('\n=== 16. local order book + CRC32 ===');
+{
+  check('crc32 known vector', crc32('123456789') === 3421780262, `got ${crc32('123456789')}`);
+
+  const lob = new LocalOrderBook('binance', 'BTC/USDT', 3);
+  lob.setSnapshot(
+    [[100, 1], [99, 2], [98, 3], [97, 4]],
+    [[101, 1], [102, 2], [103, 3], [104, 4]],
+    10,
+  );
+  check('book ready after snapshot', lob.ready);
+  const ob = lob.toOrderBook(123);
+  check('bids sorted desc & depth-capped', ob.bids.map((l) => l.price).join(',') === '100,99,98', ob.bids.map((l) => l.price).join(','));
+  check('asks sorted asc & depth-capped', ob.asks.map((l) => l.price).join(',') === '101,102,103', ob.asks.map((l) => l.price).join(','));
+  lob.upsert('bid', 100, 0); // remove top bid
+  check('removal promotes next bid', lob.sortedBids()[0].price === 99);
+  lob.upsert('ask', 101, 5); // resize a level
+  check('upsert resizes level', lob.sortedAsks()[0].amount === 5);
+}
+
+console.log('\n=== 17. Binance diff-stream sequencing ===');
+{
+  // Events arrive before the snapshot -> buffered, then reconciled.
+  const lob = new LocalOrderBook('binance', 'BTC/USDT', 50);
+  const s = new BinanceBookSyncer(lob);
+  check('pre-snapshot event buffered', s.applyEvent({ U: 11, u: 12, b: [[100, 1]], a: [[101, 1]] }) === 'buffered');
+  s.applyEvent({ U: 13, u: 14, b: [[99, 2]], a: [] });
+  const r = s.applySnapshot([[100, 5], [99, 5]], [[101, 5]], 10);
+  check('snapshot reconciles buffer', r === 'applied', `got ${r}`);
+  check('lastUpdateId advanced to 14', lob.lastUpdateId === 14, `got ${lob.lastUpdateId}`);
+  check('buffered deltas applied (bid 100 -> 1)', lob.sortedBids().find((l) => l.price === 100)?.amount === 1);
+
+  // Gap detection -> resync.
+  const lob2 = new LocalOrderBook('binance', 'BTC/USDT', 50);
+  const s2 = new BinanceBookSyncer(lob2);
+  lob2.setSnapshot([[100, 1]], [[101, 1]], 10);
+  check('continuous event applied', s2.applyEvent({ U: 11, u: 12, b: [], a: [] }) === 'applied');
+  check('gap triggers resync', s2.applyEvent({ U: 14, u: 15, b: [], a: [] }) === 'resync_needed');
+  check('stale event ignored', s2.applyEvent({ U: 5, u: 8, b: [], a: [] }) === 'ignored');
+
+  // Snapshot that can't reconcile a gapped buffer -> resync.
+  const lob3 = new LocalOrderBook('binance', 'BTC/USDT', 50);
+  const s3 = new BinanceBookSyncer(lob3);
+  s3.applyEvent({ U: 18, u: 20, b: [[100, 1]], a: [] }); // buffered
+  check('unreconcilable buffer -> resync', s3.applySnapshot([[100, 1]], [[101, 1]], 10) === 'resync_needed');
 }
 
 console.log(`\n==================  ${passed} passed, ${failed} failed  ==================\n`);
