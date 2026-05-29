@@ -10,8 +10,13 @@ import { LocalOrderBook } from './localbook';
 import { BinanceBookSyncer, type DiffEvent } from './binance-sync';
 import type { OrderBook } from '../domain/types';
 
-const WS_BASE = 'wss://stream.binance.com:9443/ws';
-const REST_DEPTH = 'https://api.binance.com/api/v3/depth';
+// Binance market-data-only endpoints. These serve real production spot market
+// data but from a domain that isn't geo/legal-restricted the way the main
+// stream.binance.com / api.binance.com hosts are (which return HTTP 451 from
+// many datacenter IPs). Override via env if your region needs a different host.
+const WS_BASE = process.env.BINANCE_WS_BASE ?? 'wss://data-stream.binance.vision/ws';
+const REST_BASE = process.env.BINANCE_REST_BASE ?? 'https://data-api.binance.vision';
+const REST_DEPTH = `${REST_BASE}/api/v3/depth`;
 
 export class BinanceWsClient {
   readonly id = 'binance';
@@ -98,6 +103,7 @@ export class BinanceWsClient {
         void this.resync();
       } else {
         this.lastMessageAt = Date.now();
+        console.log(`[binance] order book synced via ${REST_BASE}`);
         this.onUpdate();
       }
     } catch (err) {

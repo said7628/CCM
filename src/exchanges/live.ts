@@ -46,6 +46,17 @@ export class LiveSource implements MarketDataSource {
       const ExchangeClass = (ccxt as unknown as Record<string, new (cfg: object) => CcxtExchange>)[id];
       if (!ExchangeClass) throw new Error(`Unknown ccxt exchange: ${id}`);
       this.clients[id] = new ExchangeClass({ enableRateLimit: true });
+      // Binance's main REST host returns HTTP 451 from many datacenter IPs;
+      // redirect public market-data calls to the data-only mirror.
+      if (id === 'binance') {
+        try {
+          const base = process.env.BINANCE_REST_BASE ?? 'https://data-api.binance.vision';
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (this.clients[id] as any).urls.api.public = `${base}/api/v3`;
+        } catch {
+          /* fall back to ccxt default if the structure differs */
+        }
+      }
     }
     this.running = true;
 
