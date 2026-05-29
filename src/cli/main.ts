@@ -98,14 +98,20 @@ function printSummary(engine: ArbitrageEngine, wallets: WalletManager, lastState
 async function buildSource(mode: string, trading: ReturnType<typeof loadConfig>['trading'], intervalMs: number): Promise<MarketDataSource> {
   switch (mode) {
     case 'live': {
-      const wsSupported = new Set(['binance', 'kraken']);
-      if (!trading.exchanges.every((e) => wsSupported.has(e))) {
-        console.log('[info] WebSocket clients cover binance/kraken; using ccxt REST for the full set.');
-        const { LiveSource } = await import('../exchanges/live');
-        return new LiveSource(trading.exchanges, trading.symbol, trading.orderBookDepth, trading.pollIntervalMs);
+      const ws = trading.exchanges.filter((e) => e === 'binance' || e === 'kraken');
+      const rest = trading.exchanges.filter((e) => e !== 'binance' && e !== 'kraken');
+      const parts: MarketDataSource[] = [];
+      if (ws.length) {
+        const { WebSocketSource } = await import('../exchanges/ws-source');
+        parts.push(new WebSocketSource(ws, trading.symbol, trading.orderBookDepth));
       }
-      const { WebSocketSource } = await import('../exchanges/ws-source');
-      return new WebSocketSource(trading.exchanges, trading.symbol, trading.orderBookDepth);
+      if (rest.length) {
+        const { LiveSource } = await import('../exchanges/live');
+        parts.push(new LiveSource(rest, trading.symbol, trading.orderBookDepth, trading.pollIntervalMs));
+        console.log(`[info] live: WebSocket(${ws.join(',') || 'none'}) + REST(${rest.join(',')})`);
+      }
+      const { CompositeSource } = await import('../exchanges/composite');
+      return new CompositeSource(parts);
     }
     case 'live-rest': {
       const { LiveSource } = await import('../exchanges/live');
@@ -157,10 +163,9 @@ async function main(): Promise<void> {
     await new Promise<void>((resolve) => {
       let ticks = 0;
       let lastLogAt = 0;
-      const expected = trading.exchanges.length;
       source.onUpdate!(() => {
         const books = source.getBooks();
-        if (books.length < expected) return; // wait until every venue is synced
+        if (books.length < 2) return; // arbitrage needs ≥2 venues; trade whatever is live
         ticks += 1;
         const state = engine.tick(books);
         lastState = state;

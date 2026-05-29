@@ -32,6 +32,7 @@ export class LiveSource implements MarketDataSource {
   private books: Record<string, OrderBook> = {};
   private timers: NodeJS.Timeout[] = [];
   private running = false;
+  private errored = new Set<string>();
 
   constructor(
     private exchangeIds: string[],
@@ -41,22 +42,28 @@ export class LiveSource implements MarketDataSource {
   ) {}
 
   async start(): Promise<void> {
-    // Instantiate ccxt clients with built-in rate limiting.
+    // Instantiate ccxt clients: spot-only (avoids loading geo-restricted futures
+    // markets), with built-in rate limiting.
     for (const id of this.exchangeIds) {
       const ExchangeClass = (ccxt as unknown as Record<string, new (cfg: object) => CcxtExchange>)[id];
       if (!ExchangeClass) throw new Error(`Unknown ccxt exchange: ${id}`);
-      this.clients[id] = new ExchangeClass({ enableRateLimit: true });
-      // Binance's main REST host returns HTTP 451 from many datacenter IPs;
-      // redirect public market-data calls to the data-only mirror.
+      const cfg: Record<string, unknown> = {
+        enableRateLimit: true,
+        options: id === 'binance' ? { defaultType: 'spot', fetchMarkets: ['spot'] } : { defaultType: 'spot' },
+      };
+      const client = new ExchangeClass(cfg);
+      // Binance's main + futures hosts return HTTP 451 from many datacenter IPs;
+      // redirect spot public market-data calls to the data-only mirror.
       if (id === 'binance') {
         try {
           const base = process.env.BINANCE_REST_BASE ?? 'https://data-api.binance.vision';
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (this.clients[id] as any).urls.api.public = `${base}/api/v3`;
+          (client as any).urls.api.public = `${base}/api/v3`;
         } catch {
           /* fall back to ccxt default if the structure differs */
         }
       }
+      this.clients[id] = client;
     }
     this.running = true;
 
@@ -98,11 +105,18 @@ export class LiveSource implements MarketDataSource {
         asks: toLevels(raw.asks),
         timestamp: raw.timestamp ?? Date.now(),
       };
+      if (this.errored.has(id)) {
+        this.errored.delete(id);
+        console.log(`[${id}] recovered — order book streaming again`);
+      }
     } catch (err) {
-      // Transient network/exchange errors are expected; keep the last good book.
-      // The engine's staleness guard will skip a venue whose book goes stale.
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[${id}] order book fetch failed: ${msg}`);
+      // Log the first failure per venue only, then go quiet (a permanently
+      // geo-blocked venue is simply skipped; the engine trades the rest).
+      if (!this.errored.has(id)) {
+        this.errored.add(id);
+        const msg = err instanceof Error ? err.message.split('\n')[0] : String(err);
+        console.error(`[${id}] unavailable, skipping this venue: ${msg}`);
+      }
     }
   }
 }
