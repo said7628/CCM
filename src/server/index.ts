@@ -10,8 +10,10 @@
  * Just another consumer of the same engine — no business logic here.
  */
 import http from 'http';
+
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from "node:url";
 import { loadConfig, EXCHANGE_FEES, buildBalances } from '../domain/config';
 import { WalletManager } from '../engine/wallet';
 import { ArbitrageEngine, type TickResult } from '../engine/engine';
@@ -22,6 +24,8 @@ import type { OrderBook, Opportunity } from '../domain/types';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PNL_HISTORY_MAX = 180;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function buildSource(
   mode: string,
