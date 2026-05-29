@@ -12,7 +12,7 @@
  *
  * Env knobs: TICKS, INTERVAL_MS, plus the trading/risk overrides in config.ts.
  */
-import { loadConfig, EXCHANGE_FEES, INITIAL_BALANCES } from '../domain/config';
+import { loadConfig, EXCHANGE_FEES, buildBalances } from '../domain/config';
 import { WalletManager } from '../engine/wallet';
 import { ArbitrageEngine, type TickResult } from '../engine/engine';
 import { SimulatedSource, type MarketDataSource } from '../exchanges/source';
@@ -98,6 +98,12 @@ function printSummary(engine: ArbitrageEngine, wallets: WalletManager, lastState
 async function buildSource(mode: string, trading: ReturnType<typeof loadConfig>['trading'], intervalMs: number): Promise<MarketDataSource> {
   switch (mode) {
     case 'live': {
+      const wsSupported = new Set(['binance', 'kraken']);
+      if (!trading.exchanges.every((e) => wsSupported.has(e))) {
+        console.log('[info] WebSocket clients cover binance/kraken; using ccxt REST for the full set.');
+        const { LiveSource } = await import('../exchanges/live');
+        return new LiveSource(trading.exchanges, trading.symbol, trading.orderBookDepth, trading.pollIntervalMs);
+      }
       const { WebSocketSource } = await import('../exchanges/ws-source');
       return new WebSocketSource(trading.exchanges, trading.symbol, trading.orderBookDepth);
     }
@@ -120,7 +126,7 @@ async function main(): Promise<void> {
   const intervalMs = Number(process.env.INTERVAL_MS ?? (eventDriven ? 50 : 150));
   const isTTY = Boolean(process.stdout.isTTY);
 
-  const wallets = new WalletManager(INITIAL_BALANCES);
+  const wallets = new WalletManager(buildBalances(trading.exchanges));
   const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
   const source = await buildSource(mode, trading, intervalMs);
   await source.start();

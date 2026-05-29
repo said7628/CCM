@@ -25,6 +25,13 @@ export const EXCHANGE_FEES: Record<string, ExchangeFees> = {
     maker: 0.0016, // 0.16%
     withdrawalBTC: 0.00015,
   },
+  okx: { label: 'OKX', taker: 0.001, maker: 0.0008, withdrawalBTC: 0.0002 },
+  bybit: { label: 'Bybit', taker: 0.001, maker: 0.0001, withdrawalBTC: 0.0002 },
+  kucoin: { label: 'KuCoin', taker: 0.001, maker: 0.001, withdrawalBTC: 0.0004 },
+  coinbase: { label: 'Coinbase', taker: 0.006, maker: 0.004, withdrawalBTC: 0 },
+  bitstamp: { label: 'Bitstamp', taker: 0.003, maker: 0.003, withdrawalBTC: 0 },
+  bitfinex: { label: 'Bitfinex', taker: 0.002, maker: 0.001, withdrawalBTC: 0.0004 },
+  gate: { label: 'Gate.io', taker: 0.002, maker: 0.002, withdrawalBTC: 0.001 },
 };
 
 export interface TradingConfig {
@@ -127,6 +134,14 @@ export const INITIAL_BALANCES: Record<string, { base: number; quote: number }> =
   kraken: { base: 5.0, quote: 350_000 },
 };
 
+/** Build paper-trading balances for whatever set of exchanges is configured,
+ *  defaulting any venue not in INITIAL_BALANCES to a balanced inventory. */
+export function buildBalances(exchanges: string[]): Record<string, { base: number; quote: number }> {
+  const out: Record<string, { base: number; quote: number }> = {};
+  for (const ex of exchanges) out[ex] = INITIAL_BALANCES[ex] ?? { base: 5.0, quote: 350_000 };
+  return out;
+}
+
 /**
  * Build the runtime config, allowing env-var overrides. Keeping this as a
  * function (rather than reading process.env at module load) keeps the module
@@ -140,10 +155,30 @@ export function loadConfig(): { trading: TradingConfig; risk: RiskConfig } {
     return Number.isFinite(parsed) ? parsed : fallback;
   };
 
+  // Which venues to trade: EXCHANGES=binance,kraken,okx,bybit
+  const exchanges =
+    process.env.EXCHANGES?.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) ??
+    DEFAULT_TRADING.exchanges;
+
+  // Make sure every configured exchange has a fee schedule, and apply per-venue
+  // taker overrides via env (e.g. TAKER_KRAKEN=0.0016 for a VIP tier).
+  for (const ex of exchanges) {
+    if (!EXCHANGE_FEES[ex]) {
+      EXCHANGE_FEES[ex] = { label: ex, taker: 0.001, maker: 0.001, withdrawalBTC: 0.0002 };
+    }
+    const override = process.env[`TAKER_${ex.toUpperCase()}`];
+    if (override !== undefined && Number.isFinite(Number(override))) {
+      EXCHANGE_FEES[ex].taker = Number(override);
+    }
+  }
+
   return {
     trading: {
       ...DEFAULT_TRADING,
+      symbol: process.env.SYMBOL ?? DEFAULT_TRADING.symbol,
+      exchanges,
       minNetProfitPct: num('MIN_NET_PROFIT_PCT', DEFAULT_TRADING.minNetProfitPct),
+      minNetProfitAbs: num('MIN_NET_PROFIT_ABS', DEFAULT_TRADING.minNetProfitAbs),
       maxTradeSizeBTC: num('MAX_TRADE_SIZE_BTC', DEFAULT_TRADING.maxTradeSizeBTC),
       pollIntervalMs: num('POLL_INTERVAL_MS', DEFAULT_TRADING.pollIntervalMs),
       slippageBufferPct: num('SLIPPAGE_BUFFER_PCT', DEFAULT_TRADING.slippageBufferPct),

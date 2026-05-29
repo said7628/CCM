@@ -12,7 +12,7 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { loadConfig, EXCHANGE_FEES, INITIAL_BALANCES } from '../domain/config';
+import { loadConfig, EXCHANGE_FEES, buildBalances } from '../domain/config';
 import { WalletManager } from '../engine/wallet';
 import { ArbitrageEngine, type TickResult } from '../engine/engine';
 import { SimulatedSource, type MarketDataSource } from '../exchanges/source';
@@ -28,6 +28,12 @@ async function buildSource(
 ): Promise<MarketDataSource> {
   switch (mode) {
     case 'live': {
+      const wsSupported = new Set(['binance', 'kraken']);
+      if (!trading.exchanges.every((e) => wsSupported.has(e))) {
+        console.log('[info] WebSocket clients cover binance/kraken; using ccxt REST for the full set.');
+        const { LiveSource } = await import('../exchanges/live');
+        return new LiveSource(trading.exchanges, trading.symbol, trading.orderBookDepth, trading.pollIntervalMs);
+      }
       const { WebSocketSource } = await import('../exchanges/ws-source');
       return new WebSocketSource(trading.exchanges, trading.symbol, trading.orderBookDepth);
     }
@@ -75,7 +81,7 @@ async function main(): Promise<void> {
   const eventDriven = mode === 'live' || mode === 'sim-stream';
   const tickIntervalMs = Number(process.env.INTERVAL_MS ?? 250);
 
-  const wallets = new WalletManager(INITIAL_BALANCES);
+  const wallets = new WalletManager(buildBalances(trading.exchanges));
   const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
   const source = await buildSource(mode, trading, eventDriven ? Math.min(tickIntervalMs, 120) : tickIntervalMs);
   await source.start();

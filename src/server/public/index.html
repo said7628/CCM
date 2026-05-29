@@ -59,19 +59,20 @@
   .neg { color:var(--red); text-shadow:var(--glow) rgba(255,82,105,.35); }
 
   .grid { display:grid; gap:12px; grid-template-columns:1fr 1fr 1.1fr;
-    grid-template-areas:"bin kra opps" "wallets costs opps" "chart chart opps" "trades trades trades"; }
+    grid-template-areas:"books books opps" "wallets costs opps" "chart chart opps" "trades trades trades"; }
   @media (max-width:1100px){ .grid{ grid-template-columns:1fr 1fr;
-    grid-template-areas:"bin kra" "wallets costs" "opps opps" "chart chart" "trades trades"; } }
+    grid-template-areas:"books books" "wallets costs" "opps opps" "chart chart" "trades trades"; } }
   @media (max-width:680px){ .grid{ grid-template-columns:1fr;
-    grid-template-areas:"bin" "kra" "wallets" "costs" "opps" "chart" "trades"; }
+    grid-template-areas:"books" "wallets" "costs" "opps" "chart" "trades"; }
     .kpis{ grid-template-columns:1fr 1fr; } .kpi.hero .val{ font-size:26px; } }
+  .books-wrap { grid-area:books; display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); align-content:start; }
 
   .card { background:var(--panel); border:1px solid var(--line); display:flex; flex-direction:column; min-width:0; }
   .card > h3 { margin:0; padding:9px 13px; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--dim);
     border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; }
   .card > h3 .tag { margin-left:auto; color:var(--cyan); font-weight:700; }
 
-  .book.binance{ grid-area:bin; } .book.kraken{ grid-area:kra; }
+  .book.binance{} .book.kraken{}
   .ob { padding:6px 0; }
   .row { position:relative; display:grid; grid-template-columns:1fr 1fr; padding:2px 13px; font-size:12px; z-index:1; }
   .row .px { font-weight:500; } .row .sz { text-align:right; color:var(--dim); }
@@ -143,8 +144,7 @@
   </div>
 
   <div class="grid">
-    <div class="card book binance reveal" style="animation-delay:.10s"><h3>binance <span class="tag" id="binSpread">—</span></h3><div class="ob" id="binBook"></div></div>
-    <div class="card book kraken reveal" style="animation-delay:.15s"><h3>kraken <span class="tag" id="kraSpread">—</span></h3><div class="ob" id="kraBook"></div></div>
+    <div class="books-wrap reveal" id="books" style="animation-delay:.10s"></div>
     <div class="card wallets reveal" style="animation-delay:.18s"><h3>wallets / exchange</h3><div id="walletList"><div class="empty">—</div></div></div>
     <div class="card costs reveal" style="animation-delay:.20s"><h3>cost breakdown · cumulative</h3><div id="costBody"><div class="empty">no trades yet</div></div></div>
     <div class="card opps reveal" style="animation-delay:.22s"><h3>opportunities <span class="tag">live</span></h3><div id="oppList"><div class="empty">scanning…</div></div></div>
@@ -174,13 +174,20 @@ function setVal(id, text){
     prev[id]=text; el.textContent=text;
   }
 }
-function renderBook(elId, tagId, b){
+function ensureBookCard(ex){
+  if(document.getElementById('book-'+ex)) return;
+  const card=document.createElement('div'); card.className='card book';
+  card.innerHTML=`<h3>${ex} <span class="tag" id="spread-${ex}">—</span></h3><div class="ob" id="book-${ex}"></div>`;
+  document.getElementById('books').appendChild(card);
+}
+function renderBook(ex, b){
+  ensureBookCard(ex);
   const spread = b.bestAsk - b.bestBid;
-  document.getElementById(tagId).textContent = spread>0 ? 'spread '+usd(spread) : '—';
+  document.getElementById('spread-'+ex).textContent = spread>0 ? 'spread '+usd(spread) : '—';
   const maxSz = Math.max(0.0001, ...b.asks.concat(b.bids).map(l=>l.amount));
   const askRows = b.asks.slice().reverse().map((l,i)=>row('ask',l,maxSz,i===b.asks.length-1)).join('');
   const bidRows = b.bids.map((l,i)=>row('bid',l,maxSz,i===0)).join('');
-  document.getElementById(elId).innerHTML = askRows +
+  document.getElementById('book-'+ex).innerHTML = askRows +
     `<div class="spread"><span>spread</span><span><b>${spread>0?usd(spread):'—'}</b></span></div>` + bidRows;
 }
 function row(side,l,maxSz,best){ const w=Math.max(2,Math.round((l.amount/maxSz)*100));
@@ -256,7 +263,7 @@ function render(s){
   const brk=document.getElementById('breaker');
   if(s.risk.breakerActive){ brk.textContent='TRIPPED'; brk.className='val neg'; } else { brk.textContent='OK'; brk.className='val pos'; }
   document.getElementById('ddSub').textContent='drawdown '+usd(s.risk.drawdown||0)+(s.risk.tripReason?(' · '+s.risk.tripReason):'');
-  (s.books||[]).forEach(b=>{ if(b.exchange==='binance')renderBook('binBook','binSpread',b); else if(b.exchange==='kraken')renderBook('kraBook','kraSpread',b); });
+  (s.books||[]).forEach(b=>renderBook(b.exchange,b));
   renderWallets(s.wallets); renderCosts(s); renderOpps(s.opportunities); renderTrades(s.trades); drawChart(s.pnlHistory);
   applyPaused(s.paused);
 }
