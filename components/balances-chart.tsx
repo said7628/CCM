@@ -21,7 +21,7 @@ export function BalancesChart({ balances }: BalancesChartProps) {
   return (
     <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(7,43,78,0.07)] transition duration-300 hover:shadow-[0_24px_80px_rgba(7,43,78,0.11)]">
       {/* Header */}
-      <h3 className="text-lg font-black text-slate-950 mb-6">
+      <h3 className="text-lg font-semibold text-slate-950 mb-6">
         Balances por exchange
       </h3>
 
@@ -48,7 +48,7 @@ export function BalancesChart({ balances }: BalancesChartProps) {
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-xs text-slate-500">Total</span>
-          <span className="text-xl font-bold text-slate-950">
+          <span className="text-xl font-semibold text-slate-950">
             ${(total / 1000000).toFixed(2)}M
           </span>
         </div>
@@ -83,7 +83,7 @@ export function BalancesChart({ balances }: BalancesChartProps) {
       </div>
 
       {/* Footer button */}
-      <button className="w-full mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-50 text-sm font-bold text-slate-700 hover:bg-cyan-50 hover:text-cyan-700 transition-colors">
+      <button className="w-full mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-50 text-sm font-medium text-slate-700 hover:bg-cyan-50 hover:text-cyan-700 transition-colors">
         Ver todos los balances
         <ArrowRight className="w-4 h-4" />
       </button>
