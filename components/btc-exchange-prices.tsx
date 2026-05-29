@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { exchangeConfig } from "@/lib/mock-data";
+import { getExchangeVisualConfig } from "@/lib/exchange-visuals";
 import { formatCurrency } from "@/lib/utils";
 
 interface ExchangePrice {
@@ -18,8 +18,9 @@ interface BtcExchangePricesProps {
 }
 
 export function BtcExchangePrices({ prices }: BtcExchangePricesProps) {
-  const minPrice = Math.min(...prices.map((item) => item.price));
-  const maxPrice = Math.max(...prices.map((item) => item.price));
+  const safePrices = prices.filter((item) => Number.isFinite(item.price));
+  const minPrice = safePrices.length ? Math.min(...safePrices.map((item) => item.price)) : 0;
+  const maxPrice = safePrices.length ? Math.max(...safePrices.map((item) => item.price)) : 0;
   const range = Math.max(maxPrice - minPrice, 1);
 
   return (
@@ -39,8 +40,12 @@ export function BtcExchangePrices({ prices }: BtcExchangePricesProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {prices.map((item) => {
-          const config = exchangeConfig[item.exchange];
+        {prices.length === 0 ? (
+          <div className="col-span-full rounded-[1.25rem] border border-dashed border-slate-200 bg-slate-50/70 p-6 text-sm text-slate-500">
+            Esperando datos vivos de /stream para pintar bid/ask y spread por exchange.
+          </div>
+        ) : prices.map((item) => {
+          const config = getExchangeVisualConfig(item.exchange);
           const position = ((item.price - minPrice) / range) * 100;
           const isLive = item.status === "Live";
 
@@ -53,12 +58,12 @@ export function BtcExchangePrices({ prices }: BtcExchangePricesProps) {
                 <div className="flex items-center gap-2.5">
                   <span
                     className="grid h-9 w-9 place-items-center rounded-xl text-xs font-semibold"
-                    style={{ backgroundColor: config.bgColor, color: config.color }}
+                    style={{ backgroundColor: config.bgColor, color: config.iconColor }}
                   >
                     {config.icon}
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{item.exchange}</p>
+                    <p className="text-sm font-semibold text-slate-900">{config.label}</p>
                     <p className="text-xs font-normal text-slate-500">BTC spot</p>
                   </div>
                 </div>
