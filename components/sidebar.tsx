@@ -36,10 +36,10 @@ export function Sidebar() {
             <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-cyan-300 ring-4 ring-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-[-0.04em] text-slate-950">
+            <h1 className="text-2xl font-semibold tracking-[-0.04em] text-slate-950">
               Arbi<span className="text-cyan-500">Core</span>
             </h1>
-            <p className="text-[10px] font-black uppercase tracking-[0.32em] text-slate-400">
+            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-slate-400">
               Arbitrage Simulator
             </p>
           </div>
@@ -75,23 +75,23 @@ export function Sidebar() {
         <div className="rounded-[1.75rem] border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-5 shadow-[0_18px_60px_rgba(7,43,78,0.08)]">
           <div className="mb-3 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="text-xs font-black uppercase tracking-wide text-slate-500">
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
               Estrategia activa
             </span>
           </div>
-          <h3 className="text-lg font-black text-slate-950">{activeStrategy.name}</h3>
+          <h3 className="text-lg font-semibold text-slate-950">{activeStrategy.name}</h3>
 
           <div className="mt-5 space-y-4">
             <div>
               <p className="text-xs font-bold text-slate-500">Capital asignado</p>
-              <p className="mt-1 text-xl font-black text-slate-950">
+              <p className="mt-1 text-xl font-semibold text-slate-950">
                 {formatCurrency(activeStrategy.capital)}
               </p>
             </div>
             <div>
               <div className="mb-2 flex justify-between text-sm">
                 <span className="font-bold text-slate-500">Uso del capital</span>
-                <span className="font-black text-slate-950">{activeStrategy.capitalUsage}%</span>
+                <span className="font-bold text-slate-950">{activeStrategy.capitalUsage}%</span>
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
                 <div
@@ -102,7 +102,7 @@ export function Sidebar() {
             </div>
           </div>
 
-          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:bg-cyan-700">
+          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-950/20 transition hover:bg-cyan-700">
             <Pause className="h-4 w-4" />
             Pausar motor
           </button>

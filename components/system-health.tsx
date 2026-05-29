@@ -42,7 +42,7 @@ export function SystemHealth({ data }: SystemHealthProps) {
   return (
     <div className="h-full rounded-[1.75rem] border border-slate-200/80 bg-white p-6 shadow-[0_18px_60px_rgba(7,43,78,0.07)] transition duration-300 hover:shadow-[0_24px_80px_rgba(7,43,78,0.11)]">
       {/* Header */}
-      <h3 className="text-lg font-black text-slate-950 mb-6">
+      <h3 className="text-lg font-semibold text-slate-950 mb-6">
         Salud del sistema
       </h3>
 
@@ -75,7 +75,7 @@ export function SystemHealth({ data }: SystemHealthProps) {
           </svg>
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold text-slate-950">
+            <span className="text-3xl font-semibold text-slate-950">
               {data.uptime}%
             </span>
             <span className="text-sm text-slate-500">Uptime</span>
