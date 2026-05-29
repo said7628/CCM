@@ -101,10 +101,14 @@ async function main(): Promise<void> {
         buyExchange: t.buy.exchange,
         sellExchange: t.sell.exchange,
         amount: t.buy.amount,
+        fee: t.tradingFees,
+        slippage: t.slippageCost + t.latencyPenalty,
         netProfit: t.netProfit,
+        status: t.partial ? 'PARTIAL' : 'FILLED',
         partial: t.partial,
       })),
       stats,
+      paused: engine.isPaused(),
       risk: state.risk,
       portfolio: {
         totalValueQuote: state.snapshot.totalValueQuote,
@@ -181,6 +185,14 @@ async function main(): Promise<void> {
       if (latest) res.write(`data: ${JSON.stringify(latest)}\n\n`);
       clients.add(res);
       req.on('close', () => clients.delete(res));
+    } else if (url === '/control') {
+      const q = (req.url ?? '').split('?')[1] ?? '';
+      const cmd = new URLSearchParams(q).get('cmd');
+      if (cmd === 'pause') engine.setPaused(true);
+      else if (cmd === 'resume') engine.setPaused(false);
+      else if (cmd === 'toggle') engine.setPaused(!engine.isPaused());
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ paused: engine.isPaused() }));
     } else if (url === '/state') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(latest ?? {}));

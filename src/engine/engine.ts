@@ -54,6 +54,11 @@ export interface EngineStats {
   partialTrades: number;
   realizedPnl: number;
   bestTradePnl: number;
+  /** Cumulative cost breakdown across all trades (quote currency). */
+  grossProfit: number;
+  tradingFees: number;
+  slippageCost: number;
+  latencyPenalty: number;
 }
 
 export class ArbitrageEngine {
@@ -67,11 +72,16 @@ export class ArbitrageEngine {
     partialTrades: 0,
     realizedPnl: 0,
     bestTradePnl: 0,
+    grossProfit: 0,
+    tradingFees: 0,
+    slippageCost: 0,
+    latencyPenalty: 0,
   };
   private readonly maxHistory = 500;
   private lastExecAt = 0;
   private latencySum = 0;
   private latencySamples = 0;
+  private paused = false;
 
   constructor(
     private wallets: WalletManager,
@@ -111,7 +121,7 @@ export class ArbitrageEngine {
     let executed: Trade | null = null;
     let haltedByRisk = false;
 
-    if (best) {
+    if (best && !this.paused) {
       if (!this.risk.canTrade(now)) {
         haltedByRisk = true;
       } else if (now - this.lastExecAt < this.deps.trading.executionCooldownMs) {
@@ -139,6 +149,10 @@ export class ArbitrageEngine {
             this.stats.tradesExecuted += 1;
             if (trade.partial) this.stats.partialTrades += 1;
             this.stats.realizedPnl = this.wallets.getRealizedPnl();
+            this.stats.grossProfit += trade.grossProfit;
+            this.stats.tradingFees += trade.tradingFees;
+            this.stats.slippageCost += trade.slippageCost;
+            this.stats.latencyPenalty += trade.latencyPenalty;
             if (trade.netProfit > this.stats.bestTradePnl) this.stats.bestTradePnl = trade.netProfit;
 
             const equity = this.wallets.snapshot(markPrice).totalValueQuote;
@@ -163,6 +177,14 @@ export class ArbitrageEngine {
   /** Average data latency (book age at decision) across all ticks, in ms. */
   avgLatencyMs(): number {
     return this.latencySamples > 0 ? this.latencySum / this.latencySamples : 0;
+  }
+
+  /** Pause/resume trade execution (detection and streaming continue). */
+  setPaused(p: boolean): void {
+    this.paused = p;
+  }
+  isPaused(): boolean {
+    return this.paused;
   }
 
   getTrades(): Trade[] {

@@ -58,6 +58,7 @@ function cfg(overrides: Partial<TradingConfig> = {}): TradingConfig {
     maxTradeSizeBTC: 1,
     requiresWithdrawal: false,
     slippageBufferPct: 0,
+    latencyPenaltyPct: 0,
     maxQuoteAgeMs: 60_000,
     pollIntervalMs: 1000,
     orderBookDepth: 20,
@@ -264,6 +265,7 @@ console.log('\n=== 13. risk: trips on consecutive losses, resets after cooldown 
     id: 'x', opportunityId: 'o', timestamp: T0, symbol: 'BTC/USDT',
     buy: { exchange: 'a', side: 'buy', amount: 1, price: 70000, notional: 70000, fee: 70, fullyFilled: true },
     sell: { exchange: 'b', side: 'sell', amount: 1, price: 69990, notional: 69990, fee: 70, fullyFilled: true },
+    grossProfit: -10, tradingFees: 140, slippageCost: 0, latencyPenalty: 0, withdrawalCost: 0,
     netProfit: -10, partial: false,
   });
   rm.onTrade(loss(), 99_990, T0);
@@ -284,6 +286,7 @@ console.log('\n=== 14. risk: trips on drawdown ===');
     id: 'x', opportunityId: 'o', timestamp: T0, symbol: 'BTC/USDT',
     buy: { exchange: 'a', side: 'buy', amount: 1, price: 70000, notional: 70000, fee: 70, fullyFilled: true },
     sell: { exchange: 'b', side: 'sell', amount: 1, price: 70300, notional: 70300, fee: 70, fullyFilled: true },
+    grossProfit: pnl, tradingFees: 140, slippageCost: 0, latencyPenalty: 0, withdrawalCost: 0,
     netProfit: pnl, partial: false,
   });
   rm.onTrade(t(50), 100_050, T0);        // new peak
@@ -359,6 +362,26 @@ console.log('\n=== 17. Binance diff-stream sequencing ===');
   const s3 = new BinanceBookSyncer(lob3);
   s3.applyEvent({ U: 18, u: 20, b: [[100, 1]], a: [] }); // buffered
   check('unreconcilable buffer -> resync', s3.applySnapshot([[100, 1]], [[101, 1]], 10) === 'resync_needed');
+}
+
+console.log('\n=== 18. executor cost breakdown adds up ===');
+{
+  const buy = book('a', [[69900, 5]], [[70000, 1]]);
+  const sell = book('b', [[70250, 1]], [[70400, 5]]);
+  const c = cfg({ maxTradeSizeBTC: 1, slippageBufferPct: 0.0002, latencyPenaltyPct: 0.0001 });
+  const opp = evaluateOpportunity(buy, sell, { buyFees: flatFee, sellFees: flatFee, config: c });
+  const trade = executeOpportunity(opp, buy, sell, {
+    fees: { a: flatFee, b: flatFee }, config: c,
+    buyWallet: { exchange: 'a', base: 0, quote: 1_000_000 },
+    sellWallet: { exchange: 'b', base: 5, quote: 0 },
+  })!;
+  check('gross profit == 250', approx(trade.grossProfit, 250, 1e-6), `got ${trade.grossProfit}`);
+  check('trading fees == 140.25', approx(trade.tradingFees, 140.25, 1e-6), `got ${trade.tradingFees}`);
+  check('slippage == 14.00', approx(trade.slippageCost, 14, 1e-6), `got ${trade.slippageCost}`);
+  check('latency penalty == 7.00', approx(trade.latencyPenalty, 7, 1e-6), `got ${trade.latencyPenalty}`);
+  const recomputed = trade.grossProfit - trade.tradingFees - trade.slippageCost - trade.latencyPenalty - trade.withdrawalCost;
+  check('net == gross − fees − slippage − latency − withdrawal', approx(trade.netProfit, recomputed, 1e-9), `${trade.netProfit} vs ${recomputed}`);
+  check('net == 88.75', approx(trade.netProfit, 88.75, 1e-6), `got ${trade.netProfit}`);
 }
 
 console.log(`\n==================  ${passed} passed, ${failed} failed  ==================\n`);

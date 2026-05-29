@@ -162,7 +162,18 @@ export interface Trade {
   symbol: string;
   buy: TradeLeg;
   sell: TradeLeg;
-  /** Net realized P&L in quote currency for this trade. */
+  // --- Cost breakdown (all in quote currency), so net is fully auditable ---
+  /** Raw price edge captured: sell notional − buy notional, before any cost. */
+  grossProfit: number;
+  /** Taker fees on both legs. */
+  tradingFees: number;
+  /** Estimated adverse-fill / market-impact cost. */
+  slippageCost: number;
+  /** Estimated cost of acting on data delayed by network latency. */
+  latencyPenalty: number;
+  /** BTC-transfer cost (only when the strategy moves inventory between venues). */
+  withdrawalCost: number;
+  /** Net realized P&L = gross − fees − slippage − latency − withdrawal. */
   netProfit: number;
   /** True if either leg was only partially filled. */
   partial: boolean;

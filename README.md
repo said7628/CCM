@@ -34,8 +34,12 @@ PORT=80 SOURCE=live npm run server   # bind a public port on the server
 ```
 
 The dashboard streams live state over Server-Sent Events (no extra dependency):
-order books with depth bars, the ranked opportunity feed, the execution log, a
-cumulative P&L chart, and live data-latency. Open the URL in a browser.
+order books with depth bars, per-exchange wallet balances, a cumulative cost
+breakdown (gross → fees → slippage → latency → net), the ranked opportunity feed
+(rejections show gross vs net so you can see why they were skipped), a full
+execution log table (time, buy, sell, volume, fee, slippage, net, status), a
+cumulative P&L chart, live data-latency, and a pause/resume control. Open the URL
+in a browser.
 
 Useful env vars: `SOURCE`, `TICKS`, `INTERVAL_MS`, `KRAKEN_CHECKSUM=1`,
 `MIN_NET_PROFIT_PCT`, `MAX_TRADE_SIZE_BTC`, `POLL_INTERVAL_MS`, `SLIPPAGE_BUFFER_PCT`.

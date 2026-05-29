@@ -158,7 +158,24 @@ export function evaluateOpportunity(
     // only call it no_liquidity when the books were genuinely empty/dust.
     const hasDepth =
       (buyBook.asks[0]?.amount ?? 0) > EPS && (sellBook.bids[0]?.amount ?? 0) > EPS;
-    return reject(base, hasDepth ? 'negative_net' : 'no_liquidity');
+    if (hasDepth) {
+      // Compute the (negative) net at top-of-book so the UI can show exactly how
+      // far underwater the edge is after costs — "looked good gross, lost on net".
+      const refSize = Math.min(buyBook.asks[0].amount, sellBook.bids[0].amount, cap);
+      const refBuyNotional = bestAsk * refSize;
+      const refSellNotional = bestBid * refSize;
+      const refNet =
+        refSellNotional * (1 - sellFees.taker) -
+        refBuyNotional * (1 + buyFees.taker) -
+        config.slippageBufferPct * refBuyNotional -
+        config.latencyPenaltyPct * refBuyNotional;
+      base.effectiveBuyPrice = bestAsk;
+      base.effectiveSellPrice = bestBid;
+      base.netProfit = refNet;
+      base.netProfitPct = refBuyNotional > 0 ? refNet / (refBuyNotional * (1 + buyFees.taker)) : 0;
+      return reject(base, 'negative_net');
+    }
+    return reject(base, 'no_liquidity');
   }
 
   // Fees on actual filled notional.
@@ -175,8 +192,10 @@ export function evaluateOpportunity(
   // Latency/slippage buffer: expected adverse move during execution, scaled to
   // the capital deployed. Conservative — protects against over-trading thin edges.
   const slippageCostQuote = config.slippageBufferPct * sizing.buyNotional;
+  const latencyCostQuote = config.latencyPenaltyPct * sizing.buyNotional;
 
-  const netProfit = sellProceeds - buyOutlay - withdrawalCostQuote - slippageCostQuote;
+  const netProfit =
+    sellProceeds - buyOutlay - withdrawalCostQuote - slippageCostQuote - latencyCostQuote;
   const netProfitPct = buyOutlay > 0 ? netProfit / buyOutlay : 0;
 
   const result: Opportunity = {

@@ -111,13 +111,16 @@ export function executeOpportunity(
   const buyFeeQuote = buyFill.notional * buyFees.taker;
   const sellFeeQuote = sellFill.notional * sellFees.taker;
 
-  // Withdrawal cost only applies when the strategy moves BTC between venues.
-  const withdrawalCostQuote = ctx.config.requiresWithdrawal
+  // Full, auditable cost breakdown (all in quote currency).
+  const grossProfit = sellFill.notional - buyFill.notional;
+  const tradingFees = buyFeeQuote + sellFeeQuote;
+  const slippageCost = ctx.config.slippageBufferPct * buyFill.notional;
+  const latencyPenalty = ctx.config.latencyPenaltyPct * buyFill.notional;
+  const withdrawalCost = ctx.config.requiresWithdrawal
     ? buyFees.withdrawalBTC * sellFill.avgPrice
     : 0;
 
-  const netProfit =
-    sellFill.notional - sellFeeQuote - (buyFill.notional + buyFeeQuote) - withdrawalCostQuote;
+  const netProfit = grossProfit - tradingFees - slippageCost - latencyPenalty - withdrawalCost;
 
   const buyLeg: TradeLeg = {
     exchange: opp.buyExchange,
@@ -145,6 +148,11 @@ export function executeOpportunity(
     symbol: opp.symbol,
     buy: buyLeg,
     sell: sellLeg,
+    grossProfit,
+    tradingFees,
+    slippageCost,
+    latencyPenalty,
+    withdrawalCost,
     netProfit,
     partial: executed < opp.amount - EPS,
   };

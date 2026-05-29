@@ -60,6 +60,13 @@ export interface TradingConfig {
    */
   slippageBufferPct: number;
 
+  /**
+   * Estimated cost (fraction of notional) of acting on data that is slightly
+   * stale due to network latency. Surfaced as its own line in the cost
+   * breakdown so the net-vs-gross story is fully explicit for reviewers.
+   */
+  latencyPenaltyPct: number;
+
   /** Treat a quote older than this (ms) as stale and skip it. */
   maxQuoteAgeMs: number;
 
@@ -98,6 +105,7 @@ export const DEFAULT_TRADING: TradingConfig = {
   maxTradeSizeBTC: 1.0,
   requiresWithdrawal: false, // assume pre-funded inventory by default
   slippageBufferPct: 0.0002, // 0.02% safety buffer for execution latency
+  latencyPenaltyPct: 0.0001, // 0.01% estimated cost of stale-data latency
   maxQuoteAgeMs: 2000,
   pollIntervalMs: 1000,
   orderBookDepth: 20,
