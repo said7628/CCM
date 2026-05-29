@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import { exchangeConfig } from "@/lib/mock-data";
+import { getExchangeVisualConfig } from "@/lib/exchange-visuals";
 
 interface Opportunity {
   id: number;
@@ -19,21 +19,17 @@ interface OpportunitiesTableProps {
 }
 
 function ExchangeBadge({ exchange }: { exchange: string }) {
-  const config = exchangeConfig[exchange] || {
-    color: "#666",
-    bgColor: "#f0f0f0",
-    icon: "?",
-  };
+  const config = getExchangeVisualConfig(exchange);
 
   return (
     <div className="flex items-center gap-2">
       <div
         className="flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold"
-        style={{ backgroundColor: config.bgColor, color: config.color }}
+        style={{ backgroundColor: config.bgColor, color: config.iconColor }}
       >
         {config.icon}
       </div>
-      <span className="text-sm font-medium text-slate-800">{exchange}</span>
+      <span className="text-sm font-medium text-slate-800">{config.label}</span>
     </div>
   );
 }
@@ -81,7 +77,13 @@ export function OpportunitiesTable({ opportunities }: OpportunitiesTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {opportunities.map((opp) => (
+            {opportunities.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-sm text-slate-500">
+                  Esperando oportunidades vivas desde /stream.
+                </td>
+              </tr>
+            ) : opportunities.map((opp) => (
               <tr key={opp.id} className="transition-colors hover:bg-cyan-50/45">
                 <td className="py-3.5"><ExchangeBadge exchange={opp.buyExchange} /></td>
                 <td className="py-3.5"><ExchangeBadge exchange={opp.sellExchange} /></td>

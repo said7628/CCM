@@ -9,7 +9,7 @@
     "start": "next start",
     "cli": "ts-node --transpile-only src/cli/main.ts",
     "server": "tsx src/server/index.ts",
-    "test": "ts-node --transpile-only test/run.ts",
+    "test": "tsx test/run.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

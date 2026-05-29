@@ -1,14 +1,10 @@
 // Exchange logos and colors
-export const exchangeConfig: Record<
-  string,
-  { color: string; bgColor: string; icon: string }
-> = {
-  Binance: { color: "#B8860B", bgColor: "#FFF8D8", icon: "B" },
-  Coinbase: { color: "#0052FF", bgColor: "#EAF1FF", icon: "C" },
-  Kraken: { color: "#5741D9", bgColor: "#EFECFB", icon: "K" },
-  Bybit: { color: "#C88400", bgColor: "#FFF5DF", icon: "BY" },
-  OKX: { color: "#111827", bgColor: "#F1F5F9", icon: "O" },
-};
+export {
+  defaultExchangeVisual,
+  exchangeConfig,
+  getExchangeVisualConfig,
+  normalizeExchangeName,
+} from "@/lib/exchange-visuals";
 
 // Generate realistic BTC price data for the comparative chart.
 export function generatePriceData(basePrice: number, points: number = 30) {

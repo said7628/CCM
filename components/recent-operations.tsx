@@ -2,7 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import { exchangeConfig } from "@/lib/mock-data";
+import { getExchangeVisualConfig } from "@/lib/exchange-visuals";
 
 interface Operation {
   id: number;
@@ -22,21 +22,17 @@ interface RecentOperationsProps {
 }
 
 function ExchangeBadge({ exchange }: { exchange: string }) {
-  const config = exchangeConfig[exchange] || {
-    color: "#666",
-    bgColor: "#f0f0f0",
-    icon: "?",
-  };
+  const config = getExchangeVisualConfig(exchange);
 
   return (
     <div className="flex items-center gap-2">
       <div
         className="flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold"
-        style={{ backgroundColor: config.bgColor, color: config.color }}
+        style={{ backgroundColor: config.bgColor, color: config.iconColor }}
       >
         {config.icon}
       </div>
-      <span className="text-sm font-medium text-slate-800">{exchange}</span>
+      <span className="text-sm font-medium text-slate-800">{config.label}</span>
     </div>
   );
 }
@@ -82,7 +78,13 @@ export function RecentOperations({ operations }: RecentOperationsProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {operations.map((op) => (
+            {operations.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-8 text-center text-sm text-slate-500">
+                  Esperando ejecuciones vivas desde /stream.
+                </td>
+              </tr>
+            ) : operations.map((op) => (
               <tr key={op.id} className="transition-colors hover:bg-cyan-50/45">
                 <td className="py-3.5 text-sm font-normal text-slate-500">{op.time}</td>
                 <td className="py-3.5"><ExchangeBadge exchange={op.buyExchange} /></td>

@@ -16,10 +16,10 @@ import { cn } from "@/lib/utils";
 interface PriceChartProps {
   data: Array<{
     time: string;
-    binance: number;
-    coinbase: number;
-    kraken: number;
-    okx: number;
+    binance: number | null;
+    coinbase: number | null;
+    kraken: number | null;
+    okx: number | null;
   }>;
 }
 
@@ -86,6 +86,11 @@ export function PriceChart({ data }: PriceChartProps) {
       </div>
 
       <div className="h-[330px]">
+        {data.length === 0 ? (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 text-sm text-slate-500">
+            Esperando serie de precios viva desde /stream.
+          </div>
+        ) : (
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 10, bottom: 10, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -130,6 +135,7 @@ export function PriceChart({ data }: PriceChartProps) {
             ))}
           </LineChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

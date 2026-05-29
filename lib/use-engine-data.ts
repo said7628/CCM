@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getExchangeVisualConfig, normalizeExchangeName } from "@/lib/exchange-visuals";
 
 /**
  * useEngineData — connects to the backend SSE stream (/stream) and maps the
@@ -14,8 +15,6 @@ import { useEffect, useRef, useState } from "react";
  * one reverse proxy).
  */
 
-const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
 const STATUS_LABEL: Record<string, string> = {
   negative_net: "Fees exceeded spread",
   below_threshold: "Below threshold",
@@ -25,19 +24,26 @@ const STATUS_LABEL: Record<string, string> = {
   circuit_breaker: "Risk halt",
 };
 
-const EX_COLOR: Record<string, string> = {
-  Binance: "#F0B90B",
-  Coinbase: "#0052FF",
-  Kraken: "#5741D9",
-  Bybit: "#F7A600",
-  OKX: "#111827",
+const chartExchangeKey = (exchange?: string): keyof PricePoint | null => {
+  const normalized = normalizeExchangeName(exchange).toLowerCase();
+  if (["binance", "coinbase", "kraken", "okx"].includes(normalized)) {
+    return normalized as keyof PricePoint;
+  }
+  return null;
 };
+
+const safeNumber = (value: unknown, fallback = 0): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+export interface PricePoint { time: string; binance: number | null; coinbase: number | null; kraken: number | null; okx: number | null }
 
 export interface EngineData {
   connected: boolean;
   kpis: ReturnType<typeof emptyKpis>;
   exchangePrices: Array<{ exchange: string; price: number; spread: number; bid: number; ask: number; status: string }>;
-  priceData: Array<{ time: string; binance: number; coinbase: number; kraken: number; okx: number }>;
+  priceData: PricePoint[];
   opportunities: Array<{ id: number; buyExchange: string; sellExchange: string; spread: number; volume: number; profit: number; status: string }>;
   operations: Array<{ id: number; time: string; buyExchange: string; sellExchange: string; pair: string; volume: number; fee: number; slippage: number; pnl: number; status: string }>;
   balances: Array<{ name: string; value: number; percent: number; color: string }>;
@@ -95,7 +101,7 @@ function initialData(): EngineData {
 
 export function useEngineData(): EngineData {
   const [data, setData] = useState<EngineData>(initialData);
-  const priceSeriesRef = useRef<Array<{ time: string; binance: number; coinbase: number; kraken: number; okx: number }>>([]);
+  const priceSeriesRef = useRef<PricePoint[]>([]);
 
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_ENGINE_URL ?? "";
@@ -116,16 +122,16 @@ export function useEngineData(): EngineData {
       const stats = s.stats ?? {};
       const riskState = s.risk ?? {};
       const wallets: Array<any> = s.wallets ?? [];
-      const markPrice: number = s.markPrice ?? 0;
+      const markPrice = safeNumber(s.markPrice);
 
       // --- Exchange prices (bid/ask/spread per venue) ---
       const exchangePrices = books.map((b) => {
-        const bid = b.bestBid ?? 0;
-        const ask = b.bestAsk ?? 0;
+        const bid = safeNumber(b.bestBid);
+        const ask = safeNumber(b.bestAsk);
         const mid = bid && ask ? (bid + ask) / 2 : ask || bid;
         const spreadPct = mid ? ((ask - bid) / mid) * 100 : 0;
         return {
-          exchange: cap(b.exchange),
+          exchange: normalizeExchangeName(b.exchange),
           price: mid,
           spread: Number(spreadPct.toFixed(2)),
           bid,
@@ -135,19 +141,22 @@ export function useEngineData(): EngineData {
       });
 
       // --- Comparative price chart (rolling window of per-exchange mids) ---
-      const point: { time: string; binance: number; coinbase: number; kraken: number; okx: number } = {
+      const point: PricePoint = {
         time: new Date(s.ts ?? Date.now()).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        binance: 0, coinbase: 0, kraken: 0, okx: 0,
+        binance: null, coinbase: null, kraken: null, okx: null,
       };
       for (const b of books) {
-        const mid = b.bestBid && b.bestAsk ? (b.bestBid + b.bestAsk) / 2 : b.bestAsk || b.bestBid;
-        if (b.exchange in point) (point as Record<string, number | string>)[b.exchange] = Math.round(mid * 100) / 100;
+        const bid = safeNumber(b.bestBid);
+        const ask = safeNumber(b.bestAsk);
+        const mid = bid && ask ? (bid + ask) / 2 : ask || bid;
+        const key = chartExchangeKey(b.exchange);
+        if (key && key !== "time") point[key] = Math.round(mid * 100) / 100;
       }
       // Carry forward the previous value for venues absent this tick so lines stay continuous.
       const prevPoint = priceSeriesRef.current[priceSeriesRef.current.length - 1];
       if (prevPoint) {
         for (const k of ["binance", "coinbase", "kraken", "okx"] as const) {
-          if (point[k] === 0 && typeof prevPoint[k] === "number") point[k] = prevPoint[k];
+          if (point[k] === null && typeof prevPoint[k] === "number") point[k] = prevPoint[k];
         }
       }
       const series = [...priceSeriesRef.current, point].slice(-40);
@@ -156,36 +165,39 @@ export function useEngineData(): EngineData {
       // --- Opportunities (volume + profit in USD, readable status) ---
       const opportunities = (s.opportunities ?? []).map((o: any, i: number) => ({
         id: i + 1,
-        buyExchange: cap(o.buyExchange),
-        sellExchange: cap(o.sellExchange),
-        spread: Number((o.grossSpreadPct * 100).toFixed(3)),
-        volume: Math.round((o.amount ?? 0) * (o.buyPrice ?? markPrice)),
-        profit: Number((o.netProfit ?? 0).toFixed(2)),
+        buyExchange: normalizeExchangeName(o.buyExchange),
+        sellExchange: normalizeExchangeName(o.sellExchange),
+        spread: Number((safeNumber(o.grossSpreadPct) * 100).toFixed(3)),
+        volume: Math.round(safeNumber(o.amount) * safeNumber(o.buyPrice, markPrice)),
+        profit: Number(safeNumber(o.netProfit).toFixed(2)),
         status: o.executable ? "Executable" : STATUS_LABEL[o.rejectReason] ?? "Rejected",
       }));
 
       // --- Recent operations (execution log table) ---
       const operations = (s.trades ?? []).map((t: any, i: number) => ({
         id: i + 1,
-        time: new Date(t.ts).toLocaleTimeString("en-GB"),
-        buyExchange: cap(t.buyExchange),
-        sellExchange: cap(t.sellExchange),
+        time: new Date(t.ts ?? Date.now()).toLocaleTimeString("en-GB"),
+        buyExchange: normalizeExchangeName(t.buyExchange),
+        sellExchange: normalizeExchangeName(t.sellExchange),
         pair: s.symbol ?? "BTC/USDT",
-        volume: Math.round((t.amount ?? 0) * markPrice),
-        fee: Number((t.fee ?? 0).toFixed(2)),
-        slippage: Number((((t.slippage ?? 0) / Math.max(1, (t.amount ?? 0) * markPrice)) * 100).toFixed(3)),
-        pnl: Number((t.netProfit ?? 0).toFixed(2)),
+        volume: Math.round(safeNumber(t.amount) * markPrice),
+        fee: Number(safeNumber(t.fee).toFixed(2)),
+        slippage: Number(((safeNumber(t.slippage) / Math.max(1, safeNumber(t.amount) * markPrice)) * 100).toFixed(3)),
+        pnl: Number(safeNumber(t.netProfit).toFixed(2)),
         status: t.status ?? (t.partial ? "PARTIAL" : "FILLED"),
       }));
 
       // --- Wallet balances (value + % share) ---
-      const walletValues = wallets.map((w) => ({ name: cap(w.exchange), value: w.quote + w.base * markPrice }));
+      const walletValues = wallets.map((w) => ({
+        name: normalizeExchangeName(w.exchange),
+        value: safeNumber(w.quote) + safeNumber(w.base) * markPrice,
+      }));
       const totalVal = walletValues.reduce((a, w) => a + w.value, 0) || 1;
       const balances = walletValues.map((w) => ({
         name: w.name,
         value: Number(w.value.toFixed(2)),
         percent: Math.round((w.value / totalVal) * 100),
-        color: EX_COLOR[w.name] ?? "#64748b",
+        color: getExchangeVisualConfig(w.name).iconColor,
       }));
 
       // --- KPIs ---
@@ -193,15 +205,15 @@ export function useEngineData(): EngineData {
       const startValue = 700_000; // initial paper capital baseline for % P&L
       const kpis = {
         exchangesConnected: books.length,
-        opportunitiesDetected: stats.opportunitiesSeen ?? 0,
-        operationsExecuted: stats.tradesExecuted ?? 0,
-        pnl: Number((stats.realizedPnl ?? 0).toFixed(2)),
-        pnlPercent: Number((((stats.realizedPnl ?? 0) / startValue) * 100).toFixed(3)),
-        portfolioValue: Number(portfolioValue.toFixed(2)),
-        trades: stats.tradesExecuted ?? 0,
-        bestTrade: Number((stats.bestTradePnl ?? 0).toFixed(2)),
+        opportunitiesDetected: Math.max(safeNumber(stats.opportunitiesSeen), opportunities.length),
+        operationsExecuted: Math.max(safeNumber(stats.tradesExecuted), operations.length),
+        pnl: Number(safeNumber(stats.realizedPnl).toFixed(2)),
+        pnlPercent: Number(((safeNumber(stats.realizedPnl) / startValue) * 100).toFixed(3)),
+        portfolioValue: Number(safeNumber(portfolioValue).toFixed(2)),
+        trades: Math.max(safeNumber(stats.tradesExecuted), operations.length),
+        bestTrade: Number(safeNumber(stats.bestTradePnl).toFixed(2)),
         riskStatus: riskState.breakerActive ? "Alto" : "Bajo",
-        capitalAllocated: Number(portfolioValue.toFixed(2)),
+        capitalAllocated: Number(safeNumber(portfolioValue).toFixed(2)),
         capitalUsage: 0,
       };
 
@@ -229,7 +241,7 @@ export function useEngineData(): EngineData {
       const triangular = tri.enabled
         ? {
             enabled: true,
-            exchange: cap(tri.exchange ?? ""),
+            exchange: normalizeExchangeName(tri.exchange),
             path: tri.opportunity?.path,
             netPct: tri.opportunity?.netProfitPct,
             executable: tri.opportunity?.executable,
