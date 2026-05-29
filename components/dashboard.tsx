@@ -11,6 +11,7 @@ import { BalancesChart } from "@/components/balances-chart";
 import { RecentOperations } from "@/components/recent-operations";
 import { RiskEngine } from "@/components/risk-engine";
 import { SystemHealth } from "@/components/system-health";
+import { ExchangePrices } from "@/components/exchange-prices";
 import {
   generatePriceData,
   initialKPIs,
@@ -27,6 +28,13 @@ export default function Dashboard() {
   const [priceData, setPriceData] = useState(() => generatePriceData(71800, 30));
   const [riskMetrics, setRiskMetrics] = useState(mockRiskMetrics);
   const [systemHealth, setSystemHealth] = useState(mockSystemHealth);
+  const [exchangePrices, setExchangePrices] = useState([
+    { exchange: "Binance", price: 71856.42, change: 0.24 },
+    { exchange: "Coinbase", price: 71892.18, change: 0.31 },
+    { exchange: "Kraken", price: 71834.55, change: 0.18 },
+    { exchange: "Bybit", price: 71821.30, change: 0.12 },
+    { exchange: "OKX", price: 71845.67, change: 0.22 },
+  ]);
 
   // Simulate live updates
   useEffect(() => {
@@ -82,11 +90,23 @@ export default function Dashboard() {
       }));
     }, 1000);
 
+    // Update exchange prices every 2 seconds
+    const pricesInterval = setInterval(() => {
+      setExchangePrices((prev) =>
+        prev.map((ex) => ({
+          ...ex,
+          price: ex.price + (Math.random() - 0.5) * 20,
+          change: Math.max(-2, Math.min(2, ex.change + (Math.random() - 0.5) * 0.1)),
+        }))
+      );
+    }, 2000);
+
     return () => {
       clearInterval(priceInterval);
       clearInterval(kpiInterval);
       clearInterval(riskInterval);
       clearInterval(healthInterval);
+      clearInterval(pricesInterval);
     };
   }, []);
 
@@ -101,6 +121,11 @@ export default function Dashboard() {
           <HeroSection />
           
           <KPICards data={kpis} />
+          
+          {/* Exchange Prices Section */}
+          <div className="mb-8">
+            <ExchangePrices prices={exchangePrices} />
+          </div>
           
           {/* Middle section */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
