@@ -86,6 +86,9 @@
   .search{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 13px;width:280px;color:var(--dim);box-shadow:var(--shadow-sm);}
   .search input{border:none;background:none;outline:none;font-family:inherit;font-size:12.5px;color:var(--text);width:100%;}
   .pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 14px;font-weight:700;font-size:12px;box-shadow:var(--shadow-sm);white-space:nowrap;}
+  .modepill{display:flex;align-items:center;gap:7px;border:1px solid color-mix(in srgb,var(--green) 30%,transparent);border-radius:12px;padding:9px 13px;font-weight:800;font-size:11px;letter-spacing:.4px;text-transform:uppercase;background:var(--green-dim);color:var(--green);box-shadow:var(--shadow-sm);white-space:nowrap;}
+  .modepill.sim{border-color:color-mix(in srgb,var(--indigo) 38%,transparent);background:color-mix(in srgb,var(--indigo) 15%,transparent);color:var(--indigo);}
+  .modepill .dot.sim{background:var(--indigo);box-shadow:0 0 0 4px color-mix(in srgb,var(--indigo) 18%,transparent);animation:pulse 1.4s infinite;}
   .render{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 13px;box-shadow:var(--shadow-sm);}
   .render .k{font-size:8.5px;letter-spacing:1.6px;color:var(--dim);text-transform:uppercase;font-weight:700;}
   .render .v{font-size:11.5px;font-weight:700;margin-top:1px;}
@@ -269,6 +272,17 @@
   .cfg .item{border:1px solid var(--line);border-radius:12px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;}
   .cfg .item .k{color:var(--text-2);font-weight:600;font-size:12.5px;}
   .cfg .item .v{font-weight:800;}
+  .mode-card{border:1px solid color-mix(in srgb,var(--teal) 28%,transparent);border-radius:14px;padding:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--teal) 8%,transparent),transparent),var(--panel);margin-bottom:14px;}
+  .mode-card .mode-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:13px;}
+  .mode-card .mode-title{font-size:15px;font-weight:800;margin-top:2px;}
+  .mode-card .mode-desc{color:var(--dim);font-size:11.5px;margin-top:3px;}
+  .mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:5px;min-width:280px;}
+  .mode-toggle button{border:none;border-radius:10px;background:transparent;color:var(--text-2);font-family:inherit;font-weight:800;font-size:12px;padding:10px 12px;cursor:pointer;transition:.15s;text-align:left;}
+  .mode-toggle button span{display:block;font-size:10px;color:var(--dim);font-weight:600;margin-top:2px;}
+  .mode-toggle button.on{background:var(--panel);color:var(--text);box-shadow:var(--shadow-sm);}
+  .mode-toggle button[data-mode=sim].on{color:var(--indigo);}
+  .mode-toggle button[data-mode=live].on{color:var(--green);}
+  .mode-feedback{font-weight:700;font-size:12px;color:var(--teal-2);min-height:18px;}
   .alertitem{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line-soft);}
   .alertitem .ai{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;}
   .alertitem .at{font-weight:700;font-size:13px;}
@@ -342,6 +356,7 @@
       <div class="top-tools">
         <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><input id="searchInput" placeholder="Buscar exchange, par u operación" /></div>
         <div class="pill"><span class="dot live" id="engineDot"></span><span id="engineLbl">Motor activo</span></div>
+        <div class="modepill" id="dataModePill"><span class="dot live" id="dataModeDot"></span><span id="dataModeLbl">LIVE · Datos reales</span></div>
         <div class="render"><div class="k">Render</div><div class="v num"><span id="renderMs">0.0</span> ms · <span id="ups">0</span> ups</div></div>
         <button class="iconbtn" id="themeBtn" title="Tema"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
         <button class="iconbtn" title="Alertas"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="nb" id="alertNb">0</span></button>
@@ -684,7 +699,18 @@ const SK_BACKTEST = `<div class="card pad"><div class="ovl">Backtesting</div><di
 
 const SK_ALERTS = `<div class="card pad"><div class="sechead"><div><div class="ovl">Alertas</div><div class="h">Eventos del sistema</div></div><div class="muted">Generadas a partir del stream en vivo.</div></div><div id="alertList"></div></div>`;
 
-const SK_CONFIG = `<div class="card pad"><div class="ovl">Configuración</div><div class="h">Parámetros del motor</div><div class="muted" style="margin-bottom:12px">Valores activos de la sesión (ajustables por variables de entorno al iniciar).</div>
+const SK_CONFIG = `<div class="card pad"><div class="ovl">Configuración</div><div class="h">Modo de operación</div><div class="muted" style="margin-bottom:12px">La fuente de verdad se guarda en el servidor y controla qué datos alimentan todo el dashboard.</div>
+  <div class="mode-card">
+    <div class="mode-head">
+      <div><div class="mode-title">Fuente de datos</div><div class="mode-desc" id="modeDesc">Selecciona datos reales o simulación controlada.</div></div>
+      <div class="mode-toggle" id="dataModeToggle">
+        <button data-mode="live">Real<span>Usa order books reales vía WebSockets.</span></button>
+        <button data-mode="sim">Simulación<span>Genera divergencias controladas para visualizar el bot en acción.</span></button>
+      </div>
+    </div>
+    <div class="mode-feedback" id="modeFeedback"></div>
+  </div>
+  <div class="h">Parámetros del motor</div><div class="muted" style="margin-bottom:12px">Valores activos del modo seleccionado.</div>
   <div class="cfg" id="cfgGrid"></div></div>`;
 
 /* ---------- shared renderers ---------- */
@@ -710,6 +736,7 @@ function exTag(id) { const m = exMeta(id); return `<span class="exbadge"><span c
 
 /* ---------- state + render loop ---------- */
 let latest = null, dirty = false, forced = false;
+let currentDataMode = null;
 let lastReal = null; // last frame with real numbers (for delta)
 let msgCount = 0, upsTimer = Date.now(), upsVal = 0;
 let renderMs = 0;
@@ -720,6 +747,11 @@ let timeframe = PREF.tf || 300;
 function markDirty(force) { dirty = true; if (force) forced = true; }
 
 function ingest(s) {
+  if (s && s.dataMode && currentDataMode && s.dataMode !== currentDataMode) {
+    for (const k of Object.keys(PRICE)) delete PRICE[k];
+    seedPriceHistory();
+  }
+  currentDataMode = s && s.dataMode ? s.dataMode : currentDataMode;
   latest = s;
   if (s.stats && s.stats.tradesExecuted >= 0) lastReal = s;
   // update per-exchange price buffers (cheap, runs on every frame)
@@ -753,6 +785,10 @@ function renderTop(s) {
   const connected = !!es && es.readyState === 1;
   $("engineDot").className = "dot " + (s.paused ? "off" : "live");
   $("engineLbl").textContent = s.paused ? "Motor en pausa" : "Motor activo";
+  const sim = !!s.isSimulation || s.dataMode === "sim";
+  const modePill = $("dataModePill"); if (modePill) modePill.classList.toggle("sim", sim);
+  const modeDot = $("dataModeDot"); if (modeDot) modeDot.className = "dot " + (sim ? "sim" : "live");
+  setText("dataModeLbl", sim ? "SIM · Simulación activa" : "LIVE · Datos reales");
   $("renderMs").textContent = renderMs.toFixed(1);
   $("ups").textContent = upsVal;
   // sidebar strategy card
@@ -1188,10 +1224,40 @@ function renderAlertsView(s) {
   $("alertList").innerHTML = alerts.map((a) => `<div class="alertitem"><div class="ai" style="background:${col[a.k]}1f;color:${col[a.k]}">${a.k === "switch" ? "⇄" : "●"}</div><div><div class="at">${esc(a.t)}</div><div class="as">${esc(a.s)}</div></div><div class="tm">${a.time}</div></div>`).join("") || `<div class="empty">Sin alertas activas. Todo en orden.</div>`;
 }
 
+async function setDataMode(mode) {
+  const feedback = $("modeFeedback");
+  if (feedback) feedback.textContent = "Cambiando modo…";
+  try {
+    const r = await fetch("/api/settings/data-mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataMode: mode }) });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    currentDataMode = data.dataMode;
+    for (const k of Object.keys(PRICE)) delete PRICE[k];
+    await seedPriceHistory();
+    if (feedback) feedback.textContent = data.dataMode === "sim" ? "Modo Simulación activado" : "Modo Real activado";
+    markDirty(true);
+  } catch (e) {
+    if (feedback) feedback.textContent = "No se pudo cambiar el modo";
+  }
+}
+function syncDataModeToggle(s) {
+  const mode = (s && s.dataMode) || currentDataMode || "live";
+  const wrap = $("dataModeToggle");
+  if (!wrap) return;
+  wrap.querySelectorAll("button").forEach((b) => {
+    b.classList.toggle("on", b.dataset.mode === mode);
+    if (!b.dataset.wired) { b.dataset.wired = "1"; b.onclick = () => setDataMode(b.dataset.mode); }
+  });
+  const desc = $("modeDesc");
+  if (desc) desc.textContent = mode === "sim" ? "Simulación activa: oportunidades, balances y P&L son simulados." : "Modo real activo: el dashboard refleja los WebSockets/order books reales.";
+}
+
 /* ===== CONFIG ===== */
 function renderConfigView(s) {
+  syncDataModeToggle(s);
   const rows = [
-    ["Símbolo", s.symbol], ["Modo de datos", String(s.mode || "").toUpperCase()],
+    ["Símbolo", s.symbol], ["Modo de datos", s.isSimulation ? "SIM · Simulación" : "LIVE · Real"],
+    ["Fuente activa", s.sourceStatus || (s.isSimulation ? "simulation_engine" : "real_market_data")],
     ["Exchanges", (s.exchanges || []).map((e) => exMeta(e).n).join(", ")],
     ["Latencia promedio", (s.avgLatencyMs || 0).toFixed(0) + " ms"],
     ["Antigüedad del libro", (s.bookAgeMs || 0).toFixed(0) + " ms"],
@@ -1262,6 +1328,7 @@ $("searchInput").addEventListener("input", () => markDirty(true));
 
 /* ---------- boot ---------- */
 ensureSkeleton(activeView);
+loadSettings();
 seedPriceHistory();
 connect();
 requestAnimationFrame(loop);
@@ -1270,6 +1337,16 @@ window.addEventListener("resize", () => markDirty(true));
 // Pull the server's persisted per-exchange price history so the comparison
 // chart's 15M / 1H windows are populated immediately on load (and after a
 // server restart), instead of starting empty and only filling going forward.
+async function loadSettings() {
+  try {
+    const r = await fetch("/api/settings");
+    if (!r.ok) return;
+    const data = await r.json();
+    currentDataMode = data.dataMode || currentDataMode;
+    syncDataModeToggle(data);
+  } catch {}
+}
+
 async function seedPriceHistory() {
   try {
     const r = await fetch("/prices");
