@@ -1,0 +1,27 @@
+{
+  "name": "btc-arbitrage-bot",
+  "version": "0.1.0",
+  "description": "Real-time BTC arbitrage detection and simulated execution engine",
+  "type": "commonjs",
+  "scripts": {
+    "cli": "ts-node --transpile-only src/cli/main.ts",
+    "server": "ts-node --transpile-only src/server/index.ts",
+    "build": "tsc",
+    "start": "node dist/cli/main.js",
+    "test": "ts-node --transpile-only test/run.ts && ts-node --transpile-only test/ws-connectors.ts && ts-node --transpile-only test/latency-risk.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ccxt": "^4.4.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
