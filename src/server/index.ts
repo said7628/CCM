@@ -20,6 +20,8 @@ import { TriangularEngine } from '../exchanges/triangular';
 import type { TriFeed } from '../exchanges/tri-source';
 import type { OrderBook, Opportunity } from '../domain/types';
 import { loadState, saveState, flushState } from './persistence';
+import { loadPrefs, savePrefs, type EnginePrefs } from './prefs';
+import { recommend, decideAutoSwitch, type StrategyStat } from '../engine/strategies';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PNL_HISTORY_MAX = 180;
@@ -95,6 +97,38 @@ async function main(): Promise<void> {
 
   const wallets = new WalletManager(buildBalances(trading.exchanges));
   const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
+
+  // Restore engine preferences (active exchanges, risk appetite) from disk so the
+  // user's choices survive restarts and are shared across browsers/devices.
+  const prefs: EnginePrefs = loadPrefs();
+  engine.setActiveExchanges(prefs.activeExchanges);
+  engine.setRiskAppetite(prefs.riskAppetite);
+
+  // --- Strategy advisor state ---
+  // 'cross' = cross-exchange (always available). 'triangular' only when enabled.
+  // 'auto' lets the advisor pick; we track the *effective* strategy separately.
+  let strategyMode = prefs.strategy || 'cross'; // 'cross' | 'triangular' | 'auto'
+  let effectiveStrategy = strategyMode === 'auto' ? 'cross' : strategyMode;
+  let lastStrategySwitchAt = 0;
+  const strategyEvents: { ts: number; from: string; to: string; reason: string }[] = [];
+
+  const strategyStats = (): StrategyStat[] => {
+    const s = engine.getStats();
+    const out: StrategyStat[] = [{
+      id: 'cross', label: 'Cross-Exchange', realizedPnl: s.realizedPnl,
+      trades: s.tradesExecuted, opportunitiesSeen: s.opportunitiesSeen, bestNetPct: 0,
+    }];
+    if (triEngine) {
+      const t = triEngine.getState();
+      out.push({
+        id: 'triangular', label: 'Triangular', realizedPnl: t.stats.realizedPnl,
+        trades: t.stats.trades, opportunitiesSeen: t.stats.opportunitiesSeen, bestNetPct: t.stats.bestNetPct,
+      });
+    }
+    return out;
+  };
+
+
   const source = await buildSource(mode, trading, eventDriven ? Math.min(tickIntervalMs, 120) : tickIntervalMs);
   await source.start();
 
@@ -140,12 +174,14 @@ async function main(): Promise<void> {
       mode,
       symbol: trading.symbol,
       exchanges: trading.exchanges,
+      activeExchanges: engine.getActiveExchanges(),
+      riskAppetite: engine.getRiskAppetite(),
       bookAgeMs: state.bookAgeMs,
       avgLatencyMs: engine.avgLatencyMs(),
       latency: state.latency,
       markPrice: state.snapshot.markPrice,
       books: books.map((b) => bookView(b)),
-      opportunities: state.opportunities.slice(0, 6).map(oppView),
+      opportunities: state.opportunities.slice(0, 30).map(oppView),
       trades: trades.map((t) => ({
         ts: t.timestamp,
         buyExchange: t.buy.exchange,
@@ -168,6 +204,13 @@ async function main(): Promise<void> {
       wallets: wallets.allWallets(),
       pnlHistory,
       triangular: triEngine ? triEngine.getState() : { enabled: false },
+      strategy: {
+        mode: strategyMode,
+        effective: effectiveStrategy,
+        available: triEngine ? ['cross', 'triangular'] : ['cross'],
+        recommendation: recommend(strategyStats()),
+        events: strategyEvents.slice(-8).reverse(),
+      },
     };
   };
 
@@ -194,6 +237,23 @@ async function main(): Promise<void> {
       onTick(engine.tick(books), books);
     }, tickIntervalMs);
   }
+
+  // Auto-switch: in 'auto' mode the advisor may change the active strategy when
+  // another is clearly outperforming (with cooldown + margin to avoid flapping).
+  // Each switch is recorded as an event the dashboard shows as an alert.
+  setInterval(() => {
+    if (strategyMode !== 'auto') return;
+    const now = Date.now();
+    const decision = decideAutoSwitch(strategyStats(), effectiveStrategy, lastStrategySwitchAt, now);
+    if (decision.switchTo && decision.switchTo !== effectiveStrategy) {
+      const from = effectiveStrategy;
+      effectiveStrategy = decision.switchTo;
+      lastStrategySwitchAt = now;
+      strategyEvents.push({ ts: now, from, to: effectiveStrategy, reason: decision.reason });
+      if (strategyEvents.length > 50) strategyEvents.shift();
+      console.log(`[strategy] auto-switch ${from} -> ${effectiveStrategy}: ${decision.reason}`);
+    }
+  }, 2000);
 
   // Sample P&L history on a steady clock (decoupled from tick rate).
   setInterval(() => {
@@ -232,6 +292,13 @@ async function main(): Promise<void> {
           res.end(data);
         }
       });
+    } else if (url.endsWith('.png')) {
+      // Serve static PNG assets (logo, mark) from the public dir.
+      const file = path.join(__dirname, 'public', path.basename(url));
+      fs.readFile(file, (err, data) => {
+        if (err) { res.writeHead(404); res.end('not found'); }
+        else { res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }); res.end(data); }
+      });
     } else if (url === '/stream') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -244,12 +311,47 @@ async function main(): Promise<void> {
       req.on('close', () => clients.delete(res));
     } else if (url === '/control') {
       const q = (req.url ?? '').split('?')[1] ?? '';
-      const cmd = new URLSearchParams(q).get('cmd');
+      const params = new URLSearchParams(q);
+      const cmd = params.get('cmd');
       if (cmd === 'pause') engine.setPaused(true);
       else if (cmd === 'resume') engine.setPaused(false);
       else if (cmd === 'toggle') engine.setPaused(!engine.isPaused());
+      else if (cmd === 'exchanges') {
+        const valRaw = params.get('value') ?? '';
+        if (valRaw === '__none__') {
+          engine.setActiveExchanges([]); // explicit: disable all -> engine sees no venues
+        } else {
+          const raw = valRaw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+          engine.setActiveExchanges(raw.length ? raw : null); // empty/all -> clear filter
+        }
+        prefs.activeExchanges = engine.getActiveExchanges();
+        savePrefs(prefs);
+      } else if (cmd === 'risk') {
+        engine.setRiskAppetite(Number(params.get('value')));
+        prefs.riskAppetite = engine.getRiskAppetite();
+        savePrefs(prefs);
+      } else if (cmd === 'strategy') {
+        const v = (params.get('value') ?? '').toLowerCase();
+        const allowed = triEngine ? ['cross', 'triangular', 'auto'] : ['cross', 'auto'];
+        if (allowed.includes(v)) {
+          const from = effectiveStrategy;
+          strategyMode = v;
+          effectiveStrategy = v === 'auto' ? effectiveStrategy : v;
+          if (v !== 'auto' && from !== effectiveStrategy) {
+            lastStrategySwitchAt = Date.now();
+            strategyEvents.push({ ts: Date.now(), from, to: effectiveStrategy, reason: 'Cambio manual del usuario.' });
+          }
+          prefs.strategy = strategyMode;
+          savePrefs(prefs);
+        }
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ paused: engine.isPaused() }));
+      res.end(JSON.stringify({
+        paused: engine.isPaused(),
+        activeExchanges: engine.getActiveExchanges(),
+        riskAppetite: engine.getRiskAppetite(),
+        strategy: strategyMode,
+      }));
     } else if (url === '/state') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(latest ?? {}));

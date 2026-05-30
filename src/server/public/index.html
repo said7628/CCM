@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ArbiCore — Arbitrage Simulator</title>
+<title>FlowChain — Arbitrage Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -53,12 +53,9 @@
   .app{display:grid; grid-template-columns:248px 1fr; min-height:100vh;}
   .side{position:sticky; top:0; height:100vh; padding:18px 16px; display:flex; flex-direction:column;
     border-right:1px solid var(--line); background:color-mix(in srgb,var(--panel) 70%, transparent); backdrop-filter:blur(8px);}
-  .logo{display:flex; align-items:center; gap:11px; padding:6px 8px 18px;}
-  .logo .mark{width:34px;height:34px;border-radius:10px;background:var(--accent-grad);display:grid;place-items:center;box-shadow:0 6px 16px color-mix(in srgb,var(--teal) 40%,transparent);}
-  .logo .mark svg{width:19px;height:19px;}
-  .logo .nm{font-weight:800;font-size:17px;letter-spacing:-.3px;line-height:1;}
-  .logo .nm b{color:var(--teal-2);}
-  .logo .sub{font-size:9px;letter-spacing:2.4px;color:var(--dim);text-transform:uppercase;margin-top:3px;font-weight:600;}
+  .logo{display:flex; align-items:center; gap:11px; padding:10px 6px 20px;}
+  .logo .brand{height:38px; width:auto; max-width:100%; object-fit:contain;}
+  [data-theme="dark"] .logo .brand{filter:drop-shadow(0 0 1px rgba(120,200,255,.3));}
   .nav{display:flex;flex-direction:column;gap:2px;margin-top:6px;}
   .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:11px;color:var(--text-2);
     text-decoration:none;font-weight:600;font-size:13.5px;cursor:pointer;transition:.14s;border:1px solid transparent;}
@@ -136,12 +133,12 @@
   /* kpi area */
   .kpiwrap{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-bottom:16px;}
   .kpis{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  .kpi{padding:16px 18px;}
+  .kpi{padding:18px 20px;display:flex;flex-direction:column;justify-content:space-between;min-height:118px;}
   .kpi .row{display:flex;align-items:flex-start;justify-content:space-between;}
   .kpi .k{font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--dim);font-weight:700;}
-  .kpi .ic{width:30px;height:30px;border-radius:9px;background:var(--teal-dim);color:var(--teal-2);display:grid;place-items:center;}
-  .kpi .v{font-size:25px;font-weight:800;letter-spacing:-.6px;margin-top:8px;}
-  .kpi .s{font-size:11px;color:var(--dim);margin-top:3px;}
+  .kpi .ic{width:34px;height:34px;border-radius:10px;background:var(--teal-dim);color:var(--teal-2);display:grid;place-items:center;}
+  .kpi .v{font-size:27px;font-weight:800;letter-spacing:-.7px;margin-top:10px;}
+  .kpi .s{font-size:11px;color:var(--dim);margin-top:4px;}
   .pnlcard{padding:18px 20px;display:flex;flex-direction:column;}
   .pnlcard .big{font-size:42px;font-weight:800;letter-spacing:-1.4px;line-height:1;margin-top:6px;}
   .delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;border-radius:20px;padding:2px 9px;background:var(--green-dim);color:var(--green);margin-left:8px;vertical-align:middle;}
@@ -151,6 +148,11 @@
   .mini .k{font-size:10px;color:var(--dim);font-weight:600;}
   .mini .v{font-size:16px;font-weight:800;margin-top:2px;}
   .chartbox{flex:1;min-height:90px;margin-top:14px;position:relative;}
+  .pnl-empty{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;flex:1;min-height:120px;margin-top:10px;padding:10px 18px;color:var(--dim);}
+  .pnl-empty svg{width:34px;height:34px;opacity:.5;}
+  .pnl-empty div{font-size:12px;max-width:300px;line-height:1.5;}
+  .pnlcard.empty .chartbox{display:none;}
+  .pnlcard.empty .pnl-empty{display:flex;}
   canvas{display:block;width:100%;height:100%;}
 
   /* exchange price cards */
@@ -206,9 +208,10 @@
   .row4{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:16px;margin-top:16px;}
   .donutwrap{display:flex;flex-direction:column;align-items:center;}
   .donut{position:relative;width:190px;height:190px;}
-  .donut .ctr{position:absolute;inset:0;display:grid;place-items:center;text-align:center;}
-  .donut .ctr .l{font-size:10px;color:var(--dim);font-weight:600;}
-  .donut .ctr .v{font-size:22px;font-weight:800;letter-spacing:-.5px;}
+  .donut canvas{position:absolute;inset:0;display:block;width:190px;height:190px;}
+  .donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  .donut .ctr .l{font-size:10px;color:var(--dim);font-weight:600;line-height:1.2;}
+  .donut .ctr .v{font-size:21px;font-weight:800;letter-spacing:-.5px;line-height:1.15;}
   .balleg{width:100%;margin-top:14px;display:flex;flex-direction:column;gap:9px;}
   .balrow{display:flex;align-items:center;gap:10px;font-size:12.5px;}
   .balrow i{width:11px;height:11px;border-radius:3px;flex:none;}
@@ -238,9 +241,10 @@
 
   .uptime{display:flex;flex-direction:column;align-items:center;}
   .ring{position:relative;width:150px;height:150px;}
-  .ring .ctr{position:absolute;inset:0;display:grid;place-items:center;text-align:center;}
-  .ring .ctr .v{font-size:30px;font-weight:800;letter-spacing:-1px;}
-  .ring .ctr .l{font-size:11px;color:var(--dim);font-weight:600;}
+  .ring svg{position:absolute;inset:0;width:150px;height:150px;}
+  .ring .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+  .ring .ctr .v{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1;}
+  .ring .ctr .l{font-size:11px;color:var(--dim);font-weight:600;line-height:1.2;margin-top:2px;}
   .health{width:100%;margin-top:14px;display:flex;flex-direction:column;gap:11px;}
   .hrow{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:var(--text-2);}
   .hrow svg{width:16px;height:16px;color:var(--dim);}
@@ -260,6 +264,29 @@
   .alertitem .as{font-size:11px;color:var(--dim);}
   .alertitem .tm{margin-left:auto;font-size:11px;color:var(--dim);font-weight:600;}
 
+  /* exchange toggles */
+  .extoggles{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:10px;}
+  .extog{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;padding:11px 13px;cursor:pointer;transition:.14s;user-select:none;background:var(--panel);}
+  .extog:hover{border-color:color-mix(in srgb,var(--teal) 28%,transparent);}
+  .extog.off{opacity:.52;}
+  .extog .exlogo{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;flex:none;}
+  .extog .nm{font-weight:700;font-size:13px;}
+  .extog .sw{margin-left:auto;width:38px;height:22px;border-radius:20px;background:var(--line);position:relative;transition:.18s;flex:none;}
+  .extog .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.18s;}
+  .extog.on .sw{background:var(--teal);}
+  .extog.on .sw::after{transform:translateX(16px);}
+
+  /* risk appetite slider */
+  .appetite{display:flex;flex-direction:column;gap:6px;}
+  .appetite input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--green),var(--amber),var(--red));outline:none;cursor:pointer;}
+  .appetite input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--panel);border:3px solid var(--teal);box-shadow:var(--shadow-sm);cursor:pointer;}
+  .appetite input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--panel);border:3px solid var(--teal);cursor:pointer;}
+  .appetite .lbls{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);font-weight:600;}
+  .seg{display:flex;gap:6px;}
+  .seg button{flex:1;border:1px solid var(--line);background:var(--panel);font-family:inherit;font-weight:700;font-size:12px;color:var(--text-2);padding:9px;border-radius:10px;cursor:pointer;transition:.12s;}
+  .seg button.on{background:var(--teal-dim);color:var(--teal-2);border-color:color-mix(in srgb,var(--teal) 30%,transparent);}
+  .reco-badge{width:46px;height:46px;border-radius:13px;background:var(--accent-grad);color:#fff;display:grid;place-items:center;font-size:22px;flex:none;box-shadow:0 6px 16px color-mix(in srgb,var(--teal) 35%,transparent);}
+
   @media(max-width:1180px){
     .hero,.kpiwrap,.cmpwrap,.row3{grid-template-columns:1fr;}
     .row4{grid-template-columns:1fr;}
@@ -277,8 +304,7 @@
   <!-- SIDEBAR -->
   <aside class="side">
     <div class="logo">
-      <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2-7 4 14 3-9 2 2h4"/></svg></div>
-      <div><div class="nm">Arbi<b>Core</b></div><div class="sub">Arbitrage Simulator</div></div>
+      <img src="/flowchain-logo.png" alt="FlowChain" class="brand" />
     </div>
     <nav class="nav" id="nav"></nav>
     <div class="side-foot">
@@ -436,17 +462,21 @@ const SK_RESUMEN = `
       <div class="ministats">
         <div class="mini"><div class="k">Trades</div><div class="v num" id="mTrades">0</div></div>
         <div class="mini"><div class="k">Mejor trade</div><div class="v num" id="mBest">$0.00</div></div>
-        <div class="mini"><div class="k">Riesgo</div><div class="v" id="mRisk">Bajo</div></div>
+        <div class="mini"><div class="k">Fantasmas filtrados</div><div class="v num" id="mGhosts">0</div></div>
       </div>
-      <div class="chartbox"><canvas id="pnlChart"></canvas></div>
+      <div class="chartbox" id="pnlBox"><canvas id="pnlChart"></canvas></div>
+      <div class="pnl-empty" id="pnlEmpty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+        <div>La curva de P&L aparecerá aquí cuando el motor ejecute su primera operación. Ahora está vigilando spreads y descartando oportunidades no rentables.</div>
+      </div>
     </div>
     <div class="kpis">
-      ${kpi("Portfolio value", "kPort", "Total estimado en wallets conectadas", "M3 7h18v13H3zM3 7l3-4h12l3 4M8 12h.01M12 12h4")}
-      ${kpi("Opportunities", "kOpp", "Detectadas en los últimos 5 minutos", "M13 2 3 14h8l-1 8 10-12h-8z")}
-      ${kpi("Operaciones", "kOps", "Ejecuciones completadas en 24 h", "M9 11l3 3 8-8M21 12a9 9 0 1 1-6.2-8.5")}
-      ${kpi("Capital asignado", "kCap", "del capital en uso", "M12 2v20M5 9h11a3 3 0 0 1 0 6H7", "kCapSub")}
-      ${kpi("Exchanges", "kEx", "Conectados y sincronizados", "M4 7h13l-3-3M20 17H7l3 3")}
-      ${kpi("Risk status", "kRisk", "Circuit breaker armado", "M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5z")}
+      ${kpi("Portfolio value", "kPort", "del capital en uso", "M3 7h18v13H3zM3 7l3-4h12l3 4M8 12h.01M12 12h4", "kPortSub")}
+      ${kpi("Opportunities", "kOpp", "ejecutables ahora mismo", "M13 2 3 14h8l-1 8 10-12h-8z", "kOppSub")}
+      ${kpi("Operaciones", "kOps", "ejecuciones en la sesión", "M9 11l3 3 8-8M21 12a9 9 0 1 1-6.2-8.5")}
+      ${kpi("Exchanges activos", "kEx", "de 9 conectados", "M4 7h13l-3-3M20 17H7l3 3", "kExSub")}
+      ${kpi("Volatilidad BTC", "kVol", "medida en vivo (por seg.)", "M3 12h3l2-7 4 14 3-9 2 2h4")}
+      ${kpi("Risk status", "kRisk", "circuit breaker armado", "M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5z")}
     </div>
   </div>
 
@@ -539,7 +569,13 @@ const SK_OPS = `<div class="card pad"><div class="sechead"><div><div class="ovl"
   <table><thead><tr><th>Hora</th><th>Comprar</th><th>Vender</th><th class="r">Volumen</th><th class="r">Fee</th><th class="r">Slippage</th><th class="r">P&L neto</th><th class="r">Estado</th></tr></thead><tbody id="opsFull"></tbody></table></div>`;
 
 const SK_EXCHANGES = `
-  <div class="card pad"><div class="sechead"><div><div class="ovl">Order book</div><div class="h">Exchanges conectados</div></div><div class="muted" id="exCount">0 conectados</div></div><div class="exrow" id="exrow2"></div></div>
+  <div class="card pad">
+    <div class="sechead"><div><div class="ovl">Control</div><div class="h">Exchanges activos</div></div>
+      <div style="display:flex;gap:8px"><button class="btnlink" id="exAll">Todos</button><button class="btnlink" id="exNone">Ninguno</button></div></div>
+    <div class="muted" style="margin-bottom:12px">Elige en qué venues opera el motor. Los desactivados siguen recibiendo datos pero se excluyen de la detección. La selección se guarda en el servidor, así que persiste entre reinicios y entre navegadores.</div>
+    <div class="extoggles" id="exToggles"></div>
+  </div>
+  <div class="card pad" style="margin-top:16px"><div class="sechead"><div><div class="ovl">Order book</div><div class="h">Exchanges conectados</div></div><div class="muted" id="exCount">0 conectados</div></div><div class="exrow" id="exrow2"></div></div>
   <div class="row3" style="margin-top:16px">
     <div class="card pad"><div class="h">Balances por exchange</div><table style="margin-top:10px"><thead><tr><th>Exchange</th><th class="r">BTC</th><th class="r">USDT</th><th class="r">Valor</th><th class="r">%</th></tr></thead><tbody id="balTable"></tbody></table></div>
     <div class="card pad"><div class="h">Soporte de conectores</div><div class="muted" style="margin-bottom:8px">Integrados vía WebSocket / REST (ccxt).</div><div id="exSupport"></div></div>
@@ -563,6 +599,20 @@ const SK_RIESGO = `
     <div class="card pad"><div class="h">Estado</div><div class="uptime" style="margin-top:10px"><div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--line)" stroke-width="9"/><circle id="r2Ring" cx="60" cy="60" r="50" fill="none" stroke="var(--green)" stroke-width="9" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="0" transform="rotate(-90 60 60)"/></svg><div class="ctr"><div class="v" id="r2State">Bajo</div><div class="l">Nivel de riesgo</div></div></div></div></div>
   </div>
   <div class="card pad" style="margin-top:16px">
+    <div class="ovl">Control</div><div class="h">Apetito de riesgo</div>
+    <div class="muted" style="margin-bottom:14px">Sube el apetito para que el motor acepte spreads más finos: más operaciones, pero más exposición a que las fees o la latencia se coman el margen. Se guarda en el servidor y persiste entre navegadores.</div>
+    <div class="seg" id="riskSeg" style="margin-bottom:16px">
+      <button data-a="0.5">Conservador</button>
+      <button data-a="1">Moderado</button>
+      <button data-a="2">Agresivo</button>
+      <button data-a="3">Muy agresivo</button>
+    </div>
+    <div class="appetite">
+      <input type="range" id="riskRange" min="0.25" max="4" step="0.05" value="1" />
+      <div class="lbls"><span>0.25× (estricto)</span><span><b id="riskVal" style="color:var(--text)">1.00×</b> umbral de ganancia</span><span>4× (laxo)</span></div>
+    </div>
+  </div>
+  <div class="card pad" style="margin-top:16px">
     <div class="ovl">Latency guard</div><div class="h">Filtro de oportunidades fantasma</div>
     <div class="muted" style="margin-bottom:6px">Una oportunidad solo es real si el spread sobrevive a la antigüedad de la pata más lenta más la latencia de ejecución. Las que no, se descartan antes de operar.</div>
     <div class="riskgrid" style="margin-top:12px">
@@ -573,14 +623,32 @@ const SK_RIESGO = `
     </div>
   </div>`;
 
-const SK_STRAT = `<div class="card pad"><div class="ovl">Estrategia activa</div><div class="h" id="s2Name">Cross-Exchange BTC</div>
-  <div class="riskgrid" style="margin-top:14px">
-    <div class="rcell"><div class="k">Tipo</div><div class="v" style="font-size:16px" id="s2Type">Cross-exchange</div></div>
-    <div class="rcell"><div class="k">Capital asignado</div><div class="v num" id="s2Cap">$0</div></div>
-    <div class="rcell"><div class="k">Uso del capital</div><div class="v num" id="s2Use">0%</div></div>
-    <div class="rcell"><div class="k">P&L estrategia</div><div class="v num" id="s2Pnl">$0</div></div>
+const SK_STRAT = `
+  <div class="card pad">
+    <div class="sechead"><div><div class="ovl">Motor de estrategia</div><div class="h">Selección de estrategia</div></div></div>
+    <div class="muted" style="margin-bottom:12px">Elige la estrategia activa, o deja que el bot la elija solo (Auto): cambiará a la que esté rindiendo mejor y te avisará con una alerta. La elección se guarda en el servidor.</div>
+    <div class="seg" id="stratSeg"></div>
+    <div id="stratAutoNote" style="margin-top:12px"></div>
   </div>
-  <div id="s2Tri" style="margin-top:16px"></div></div>`;
+
+  <div class="card pad" style="margin-top:16px;border-color:color-mix(in srgb,var(--teal) 28%,transparent)">
+    <div class="ovl">Recomendación</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:8px">
+      <div class="reco-badge" id="recoBadge">★</div>
+      <div><div class="h" id="recoName" style="margin:0">—</div><div class="muted" id="recoReason">Analizando…</div></div>
+      <button class="btnlink" id="recoApply" style="margin-left:auto">Aplicar recomendación</button>
+    </div>
+  </div>
+
+  <div class="card pad" style="margin-top:16px">
+    <div class="h">Comparativa de estrategias</div>
+    <table style="margin-top:10px"><thead><tr><th>Estrategia</th><th class="r">Trades</th><th class="r">P&L</th><th class="r">P&L / trade</th><th class="r">Mejor margen</th><th class="r">Oport.</th><th class="r">Estado</th></tr></thead><tbody id="stratTable"></tbody></table>
+  </div>
+
+  <div class="card pad" style="margin-top:16px">
+    <div class="h">Historial de cambios</div>
+    <div id="stratHistory" style="margin-top:6px"></div>
+  </div>`;
 
 const SK_BACKTEST = `<div class="card pad"><div class="ovl">Backtesting</div><div class="h">Curva de equity de la sesión</div><div class="muted" style="margin-bottom:8px">Reconstruida desde el histórico persistido de P&L.</div>
   <div class="ministats" style="margin-bottom:8px"><div class="mini"><div class="k">Puntos</div><div class="v num" id="btPts">0</div></div><div class="mini"><div class="k">P&L final</div><div class="v num" id="btFinal">$0</div></div><div class="mini"><div class="k">Pico equity</div><div class="v num" id="btPeak">$0</div></div></div>
@@ -663,7 +731,9 @@ function renderTop(s) {
   const cap = s.portfolio ? s.portfolio.totalValueQuote : 0;
   const baseVal = (s.portfolio ? s.portfolio.totalBase : 0) * (s.markPrice || 0);
   const usePct = cap ? Math.min(100, (baseVal / cap) * 100) : 0;
-  $("stratName").textContent = s.triangular && s.triangular.enabled ? "Triangular " + cap0(s.triangular.exchange) : "Cross-Exchange BTC";
+  $("stratName").textContent = s.strategy
+    ? (s.strategy.mode === "auto" ? "Auto · " + ((STRAT_LABELS[s.strategy.effective] || s.strategy.effective)) : (STRAT_LABELS[s.strategy.effective] || "Cross-Exchange"))
+    : "Cross-Exchange BTC";
   $("stratCap").textContent = usdc(cap);
   $("stratUsePct").textContent = usePct.toFixed(1) + "%";
   $("stratMeter").style.width = usePct + "%";
@@ -714,18 +784,25 @@ function renderResumen(s) {
   dEl.className = "delta " + (deltaPct < 0 ? "neg" : "");
   setText("mTrades", st.tradesExecuted || 0);
   $("mBest").textContent = usd(st.bestTradePnl || 0);
+  setText("mGhosts", (st.ghostsFiltered != null ? st.ghostsFiltered : 0));
+  // empty-state: show the helpful message instead of a blank chart until we trade
+  const pnlEmpty = (s.pnlHistory || []).length < 2 && (st.tradesExecuted || 0) === 0;
+  const pc = document.querySelector("#view-resumen .pnlcard"); if (pc) pc.classList.toggle("empty", pnlEmpty);
   const riskLvl = s.risk && s.risk.breakerActive ? "Alto" : (s.risk && s.risk.drawdown > 0 ? "Medio" : "Bajo");
-  $("mRisk").textContent = riskLvl; $("mRisk").className = "v " + (riskLvl === "Alto" ? "neg" : riskLvl === "Bajo" ? "pos" : "");
 
-  // KPIs
-  $("kPort").textContent = usd(s.portfolio ? s.portfolio.totalValueQuote : 0);
-  setText("kOpp", (s.opportunities || []).length);
-  setText("kOps", st.tradesExecuted || 0);
-  $("kCap").textContent = usd(s.portfolio ? s.portfolio.totalValueQuote : 0);
+  // KPIs (deduplicated — Portfolio value carries the capital-in-use as subtext)
+  $("kPort").textContent = usdc(s.portfolio ? s.portfolio.totalValueQuote : 0);
   const baseVal = (s.portfolio ? s.portfolio.totalBase : 0) * (s.markPrice || 0);
   const usePct = s.portfolio && s.portfolio.totalValueQuote ? (baseVal / s.portfolio.totalValueQuote) * 100 : 0;
-  setText("kCapSub", usePct.toFixed(1) + "%");
-  setText("kEx", (s.exchanges || s.books || []).length);
+  setText("kPortSub", usePct.toFixed(1) + "%");
+  const execNow = (s.opportunities || []).filter((o) => o.executable).length;
+  setText("kOpp", (s.opportunities || []).length);
+  setText("kOppSub", execNow);
+  setText("kOps", st.tradesExecuted || 0);
+  const activeN = (s.activeExchanges || s.exchanges || s.books || []).length;
+  setText("kEx", activeN);
+  setText("kExSub", "de " + ((s.exchanges || []).length || (s.books || []).length) + " conectados");
+  setText("kVol", (((s.latency || {}).volatilityPctPerSec || 0) * 100).toFixed(3) + "%");
   $("kRisk").textContent = riskLvl; $("kRisk").className = "v " + (riskLvl === "Bajo" ? "pos" : riskLvl === "Alto" ? "neg" : "");
 
   setText("heroLat", (s.bookAgeMs || 0) + " ms");
@@ -859,6 +936,7 @@ const CONNECTORS = [
   ["gemini", "Exchange regulado con datos institucionales.", "REST"],
 ];
 function renderExchangesView(s) {
+  renderExchangeToggles(s);
   $("exrow2").innerHTML = (s.books || []).map((b) => exchangeCard(b, s.markPrice)).join("") || `<div class="empty">Esperando feeds…</div>`;
   setText("exCount", (s.books || []).length + " conectados");
   const wl = (s.wallets || []).map((w) => ({ ex: w.exchange, base: w.base, quote: w.quote, val: w.base * (s.markPrice || 0) + w.quote }));
@@ -869,6 +947,45 @@ function renderExchangesView(s) {
     const on = live.has(id);
     return `<div class="alertitem"><div class="ai" style="background:${exMeta(id).c}1f;color:${exMeta(id).c}">${exMeta(id).n[0]}</div><div><div class="at">${exMeta(id).n} ${on ? `<span class="stbadge st-exec" style="margin-left:4px">live</span>` : ""}</div><div class="as">${desc} · API ${proto}</div></div></div>`;
   }).join("");
+}
+
+/* exchange enable/disable toggles — selection persisted server-side */
+let _exToggleBuilt = false;
+function ctl(cmd, value) {
+  const u = "/control?cmd=" + cmd + (value !== undefined ? "&value=" + encodeURIComponent(value) : "");
+  fetch(u).catch(() => {});
+}
+function renderExchangeToggles(s) {
+  const connected = (s.exchanges && s.exchanges.length ? s.exchanges : (s.books || []).map((b) => b.exchange));
+  const active = s.activeExchanges; // null => all active
+  const isOn = (id) => !active || active.includes(id);
+  const wrap = $("exToggles");
+  if (!wrap) return;
+  // Build once; afterwards only sync on/off classes so live frames don't eat clicks.
+  if (!_exToggleBuilt || wrap.children.length !== connected.length) {
+    wrap.innerHTML = connected.map((id) => {
+      const m = exMeta(id);
+      return `<div class="extog ${isOn(id) ? "on" : "off"}" data-ex="${id}"><div class="exlogo" style="background:${m.c}">${m.n[0]}</div><div class="nm">${m.n}</div><div class="sw"></div></div>`;
+    }).join("");
+    wrap.querySelectorAll(".extog").forEach((el) => {
+      el.onclick = () => {
+        el.classList.toggle("on"); el.classList.toggle("off");
+        const chosen = [...wrap.querySelectorAll(".extog.on")].map((x) => x.dataset.ex);
+        // all selected => send empty (clears filter = all active)
+        ctl("exchanges", chosen.length === connected.length ? "" : chosen.join(","));
+      };
+    });
+    const all = $("exAll"), none = $("exNone");
+    if (all) all.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.add("on"); x.classList.remove("off"); }); ctl("exchanges", ""); };
+    if (none) none.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.remove("on"); x.classList.add("off"); }); ctl("exchanges", "__none__"); };
+    _exToggleBuilt = true;
+  } else {
+    // sync state from server (e.g. another browser changed it)
+    wrap.querySelectorAll(".extog").forEach((el) => {
+      const on = isOn(el.dataset.ex);
+      el.classList.toggle("on", on); el.classList.toggle("off", !on);
+    });
+  }
 }
 
 /* ===== RIESGO ===== */
@@ -897,23 +1014,76 @@ function renderRiesgoView(s) {
   const expMs = (s.bookAgeMs || 0) + (lat.executionLatencyMs || 0);
   setText("lgExp", expMs.toFixed(0) + " ms");
   setText("lgExec", (lat.executionLatencyMs || 0));
+  // Risk appetite control
+  wireRiskAppetite();
+  if (!_riskDragging) syncRiskAppetite(s.riskAppetite != null ? s.riskAppetite : 1);
+}
+
+let _riskWired = false, _riskDragging = false;
+function syncRiskAppetite(a) {
+  const range = $("riskRange"); if (range) range.value = a;
+  const val = $("riskVal"); if (val) val.textContent = (Number(a)).toFixed(2) + "×";
+  const seg = $("riskSeg");
+  if (seg) seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", Math.abs(Number(b.dataset.a) - a) < 0.001));
+}
+function wireRiskAppetite() {
+  if (_riskWired) return;
+  const range = $("riskRange"), seg = $("riskSeg");
+  if (!range || !seg) return;
+  _riskWired = true;
+  range.addEventListener("input", () => { _riskDragging = true; const v = Number(range.value); $("riskVal").textContent = v.toFixed(2) + "×"; seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", Math.abs(Number(b.dataset.a) - v) < 0.001)); });
+  range.addEventListener("change", () => { ctl("risk", range.value); setTimeout(() => { _riskDragging = false; }, 400); });
+  seg.querySelectorAll("button").forEach((b) => b.onclick = () => { const v = Number(b.dataset.a); syncRiskAppetite(v); ctl("risk", v); });
 }
 
 /* ===== ESTRATEGIAS ===== */
+const STRAT_LABELS = { cross: "Cross-Exchange", triangular: "Triangular", auto: "Auto (bot decide)" };
+const STRAT_DESC = { cross: "Compra y vende el mismo activo entre dos exchanges.", triangular: "Aprovecha el desajuste entre tres pares dentro de un exchange.", auto: "El bot cambia solo a la estrategia que mejor rinde." };
+let _stratWired = false;
 function renderStratView(s) {
-  const tri = s.triangular && s.triangular.enabled;
-  $("s2Name").textContent = tri ? "Triangular " + cap0(s.triangular.exchange) : "Cross-Exchange BTC";
-  $("s2Type").textContent = tri ? "Triangular intra-exchange" : "Cross-exchange spot";
-  const cap = s.portfolio ? s.portfolio.totalValueQuote : 0;
-  $("s2Cap").textContent = usdc(cap);
-  const baseVal = (s.portfolio ? s.portfolio.totalBase : 0) * (s.markPrice || 0);
-  $("s2Use").textContent = (cap ? (baseVal / cap) * 100 : 0).toFixed(1) + "%";
-  $("s2Pnl").textContent = usd(s.stats ? s.stats.realizedPnl : 0); $("s2Pnl").className = "v num " + cls(s.stats ? s.stats.realizedPnl : 0);
-  if (tri) {
-    const o = s.triangular.opportunity, ts = s.triangular.stats || {};
-    $("s2Tri").innerHTML = `<div class="rsoft"><div class="k">Loop triangular en ${cap0(s.triangular.exchange)}</div><div class="v" style="font-size:15px">${o ? esc(o.path) + " · " + pct(o.netProfitPct) : "Esperando los tres pares…"}</div><div class="muted" style="margin-top:6px">Trades: ${ts.trades || 0} · P&L ${usd(ts.realizedPnl || 0)} · mejor ${pct(ts.bestNetPct || 0)}</div></div>`;
-  } else $("s2Tri").innerHTML = "";
+  const strat = s.strategy || { mode: "cross", effective: "cross", available: ["cross"], recommendation: { scores: [] }, events: [] };
+  const avail = (strat.available || ["cross"]).concat("auto");
+  const seg = $("stratSeg");
+  // build selector once
+  if (!_stratWired && seg) {
+    seg.innerHTML = avail.map((id) => `<button data-s="${id}">${STRAT_LABELS[id] || id}</button>`).join("");
+    seg.querySelectorAll("button").forEach((b) => b.onclick = () => { ctl("strategy", b.dataset.s); seg.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); });
+    const ra = $("recoApply"); if (ra) ra.onclick = () => { const best = (s2cache.recommendation || {}).bestId; if (best) ctl("strategy", best); };
+    _stratWired = true;
+  }
+  if (seg) seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.s === strat.mode));
+
+  // auto note
+  const note = $("stratAutoNote");
+  if (note) {
+    if (strat.mode === "auto") {
+      note.innerHTML = `<div class="rsoft"><div class="k">Modo automático activo</div><div class="v" style="font-size:14px">Operando ahora con: <b>${STRAT_LABELS[strat.effective] || strat.effective}</b></div><div class="muted" style="margin-top:4px">${STRAT_DESC[strat.effective] || ""}</div></div>`;
+    } else {
+      note.innerHTML = `<div class="muted">${STRAT_DESC[strat.mode] || ""}</div>`;
+    }
+  }
+
+  // recommendation
+  const reco = strat.recommendation || { scores: [] };
+  s2cache.recommendation = reco;
+  setText("recoName", STRAT_LABELS[reco.bestId] || "—");
+  setText("recoReason", reco.reason || "Analizando…");
+
+  // comparison table
+  const scores = reco.scores || [];
+  $("stratTable").innerHTML = scores.map((sc) => {
+    const isActive = sc.id === strat.effective;
+    return `<tr><td><b>${STRAT_LABELS[sc.id] || sc.id}</b></td><td class="r num">${sc.trades}</td><td class="r num ${cls(sc.realizedPnl)}">${usd(sc.realizedPnl)}</td><td class="r num ${cls(sc.pnlPerTrade)}">${usd(sc.pnlPerTrade)}</td><td class="r num">${pct(sc.bestNetPct)}</td><td class="r num">${sc.opportunitiesSeen}</td><td class="r">${isActive ? '<span class="stbadge st-exec">Activa</span>' : (sc.id === reco.bestId ? '<span class="stbadge st-ghost">Recomendada</span>' : '<span class="stbadge st-rej">En espera</span>')}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty">Sin datos de estrategia aún.</td></tr>`;
+
+  // switch history
+  const ev = strat.events || [];
+  $("stratHistory").innerHTML = ev.length ? ev.map((e) => {
+    const time = new Date(e.ts).toLocaleTimeString("es-ES");
+    return `<div class="alertitem"><div class="ai" style="background:color-mix(in srgb,var(--indigo) 16%,transparent);color:var(--indigo)">⇄</div><div><div class="at">${STRAT_LABELS[e.from] || e.from} → ${STRAT_LABELS[e.to] || e.to}</div><div class="as">${esc(e.reason)}</div></div><div class="tm">${time}</div></div>`;
+  }).join("") : `<div class="empty">Sin cambios de estrategia todavía.</div>`;
 }
+const s2cache = {};
 
 /* ===== BACKTESTING ===== */
 function renderBacktestView(s) {
@@ -930,14 +1100,20 @@ function computeAlerts(s) {
   if (s.paused) out.push({ t: "Motor en pausa", s: "La ejecución está detenida manualmente.", k: "warn", time: "ahora" });
   if (s.risk && s.risk.breakerActive) out.push({ t: "Circuit breaker disparado", s: s.risk.tripReason || "Riesgo elevado", k: "err", time: "ahora" });
   if ((s.bookAgeMs || 0) > 2500) out.push({ t: "Latencia de feed elevada", s: (s.bookAgeMs || 0) + " ms de antigüedad", k: "warn", time: "ahora" });
+  // strategy auto-switch events
+  const ev = (s.strategy && s.strategy.events) || [];
+  ev.slice(0, 4).forEach((e) => out.push({
+    t: "Cambio de estrategia", s: `${(STRAT_LABELS[e.from] || e.from)} → ${(STRAT_LABELS[e.to] || e.to)}: ${e.reason}`,
+    k: "switch", time: new Date(e.ts).toLocaleTimeString("es-ES"),
+  }));
   (s.opportunities || []).filter((o) => o.executable).slice(0, 3).forEach((o) =>
     out.push({ t: "Oportunidad ejecutable", s: `${exMeta(o.buyExchange).n} → ${exMeta(o.sellExchange).n} · ${pct(o.netProfitPct)}`, k: "ok", time: "live" }));
   return out;
 }
 function renderAlertsView(s) {
   const alerts = computeAlerts(s);
-  const col = { ok: "var(--green)", warn: "var(--amber)", err: "var(--red)" };
-  $("alertList").innerHTML = alerts.map((a) => `<div class="alertitem"><div class="ai" style="background:${col[a.k]}1f;color:${col[a.k]}">●</div><div><div class="at">${esc(a.t)}</div><div class="as">${esc(a.s)}</div></div><div class="tm">${a.time}</div></div>`).join("") || `<div class="empty">Sin alertas activas. Todo en orden.</div>`;
+  const col = { ok: "var(--green)", warn: "var(--amber)", err: "var(--red)", switch: "var(--indigo)" };
+  $("alertList").innerHTML = alerts.map((a) => `<div class="alertitem"><div class="ai" style="background:${col[a.k]}1f;color:${col[a.k]}">${a.k === "switch" ? "⇄" : "●"}</div><div><div class="at">${esc(a.t)}</div><div class="as">${esc(a.s)}</div></div><div class="tm">${a.time}</div></div>`).join("") || `<div class="empty">Sin alertas activas. Todo en orden.</div>`;
 }
 
 /* ===== CONFIG ===== */

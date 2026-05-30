@@ -8,7 +8,7 @@
     "server": "ts-node --transpile-only src/server/index.ts",
     "build": "tsc",
     "start": "node dist/cli/main.js",
-    "test": "ts-node --transpile-only test/run.ts && ts-node --transpile-only test/ws-connectors.ts && ts-node --transpile-only test/latency-risk.ts",
+    "test": "ts-node --transpile-only test/run.ts && ts-node --transpile-only test/ws-connectors.ts && ts-node --transpile-only test/latency-risk.ts && ts-node --transpile-only test/strategies.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

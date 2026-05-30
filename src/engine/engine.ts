@@ -98,6 +98,14 @@ export class ArbitrageEngine {
   private latencySamples = 0;
   private paused = false;
   private vol: VolatilityEstimator;
+  /** Exchanges the user has enabled. null = all connected venues are active. */
+  private activeExchanges: Set<string> | null = null;
+  /**
+   * Risk appetite multiplier on the profit gates. 1 = configured defaults
+   * (conservative). >1 loosens the minimum-profit thresholds so the bot takes
+   * thinner edges (more trades, more risk); <1 tightens them. Bounded for safety.
+   */
+  private riskAppetite = 1;
 
   constructor(
     private wallets: WalletManager,
@@ -110,9 +118,30 @@ export class ArbitrageEngine {
     this.vol = new VolatilityEstimator(deps.trading.volatilityPctPerSec);
   }
 
-  tick(books: OrderBook[]): TickResult {
+  /** Restrict trading to a subset of venues (UI toggle). null = all active; [] = none. */
+  setActiveExchanges(ids: string[] | null): void {
+    this.activeExchanges = ids === null ? null : new Set(ids);
+  }
+  getActiveExchanges(): string[] | null {
+    return this.activeExchanges ? [...this.activeExchanges] : null;
+  }
+  /** Set risk appetite (0.25..4). Higher = thinner edges accepted = more aggressive. */
+  setRiskAppetite(a: number): void {
+    if (Number.isFinite(a)) this.riskAppetite = Math.min(4, Math.max(0.25, a));
+  }
+  getRiskAppetite(): number {
+    return this.riskAppetite;
+  }
+
+  tick(allBooks: OrderBook[]): TickResult {
     const now = Date.now();
     this.stats.ticks += 1;
+
+    // Active-exchange filter: the user can focus the engine on a subset of venues
+    // without disconnecting their feeds. Detection/execution only see these books.
+    const books = this.activeExchanges
+      ? allBooks.filter((b) => this.activeExchanges!.has(b.exchange))
+      : allBooks;
 
     const freshest = books.reduce((m, b) => Math.max(m, b.timestamp), 0);
     const bookAgeMs = freshest > 0 ? now - freshest : 0;
@@ -120,6 +149,18 @@ export class ArbitrageEngine {
     this.latencySamples += 1;
 
     const markPrice = computeMark(books);
+
+    // Risk appetite scales the profit gates: higher appetite -> lower thresholds
+    // -> thinner edges accepted. We pass an adjusted config to detection only;
+    // the persisted defaults are untouched.
+    const tradingForTick =
+      this.riskAppetite === 1
+        ? this.deps.trading
+        : {
+            ...this.deps.trading,
+            minNetProfitPct: this.deps.trading.minNetProfitPct / this.riskAppetite,
+            minNetProfitAbs: this.deps.trading.minNetProfitAbs / this.riskAppetite,
+          };
 
     // Feed the live volatility estimator with each venue's current mid, so the
     // latency-risk model uses *current* market conditions, not a constant.
@@ -131,7 +172,7 @@ export class ArbitrageEngine {
 
     const opportunities = detectOpportunities(books, {
       fees: this.deps.fees,
-      config: this.deps.trading,
+      config: tradingForTick,
       volatilityPctPerSec: this.vol.pctPerSec(),
     });
     const executable = opportunities.filter((o) => o.executable);
@@ -168,7 +209,7 @@ export class ArbitrageEngine {
         if (buyBook && sellBook && buyWallet && sellWallet) {
           const trade = executeOpportunity(best, buyBook, sellBook, {
             fees: this.deps.fees,
-            config: this.deps.trading,
+            config: tradingForTick,
             buyWallet,
             sellWallet,
           });
