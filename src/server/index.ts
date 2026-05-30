@@ -140,84 +140,12 @@ async function main(): Promise<void> {
   let dataMode: DataMode = prefs.dataMode;
   console.log(`[engine] using ${dataMode === 'live' ? 'live source' : 'simulation source'}`);
 
-  const makeRuntime = async (mode: DataMode): Promise<Runtime> => {
-    const sourceName: 'live' | 'sim-stream' = mode === 'live' ? 'live' : 'sim-stream';
-    const eventDriven = true;
-    const wallets = new WalletManager(buildBalances(trading.exchanges));
-    const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
-    engine.setActiveExchanges(prefs.activeExchanges);
-    engine.setRiskAppetite(prefs.riskAppetite);
-
-    const rt: Runtime = {
-      mode,
-      sourceName,
-      eventDriven,
-      source: null,
-      sourceError: null,
-      wallets,
-      engine,
-      pnlHistory: [],
-      priceSeries: {},
-      latest: null,
-      triEngine: null,
-      triFeed: null,
-      triTimer: null,
-    };
-
-    try {
-      rt.source = await buildSource(sourceName, trading, Math.min(tickIntervalMs, 120));
-      rt.source.onUpdate?.(() => {
-        if (!rt.source) return;
-        const books = rt.source.getBooks();
-        if (books.length < 2) return; // arbitrage needs ≥2 venues; trade whatever is live
-        onTick(rt, rt.engine.tick(books), books);
-      });
-      await rt.source.start();
-      console.log(`[engine] ${mode} data source started (${rt.source.name})`);
-    } catch (err) {
-      rt.sourceError = err instanceof Error ? err.message : String(err);
-      console.error(`[engine] ${mode} source failed: ${rt.sourceError}`);
-    }
-
-    if (process.env.TRIANGULAR === '1') {
-      try {
-        const triExchange = process.env.TRI_EXCHANGE ?? 'binance';
-        const triFee = Number(process.env.TRI_TAKER ?? EXCHANGE_FEES[triExchange]?.taker ?? 0.001);
-        const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
-        rt.triEngine = new TriangularEngine({
-          exchange: triExchange, takerFee: triFee, notionalUSDT: triNotional,
-          minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
-        });
-        if (mode === 'live') {
-          const { CcxtTriFeed } = await import('../exchanges/tri-source');
-          rt.triFeed = new CcxtTriFeed(triExchange, trading.pollIntervalMs, trading.orderBookDepth);
-        } else {
-          const { SimTriFeed } = await import('../exchanges/tri-source');
-          rt.triFeed = new SimTriFeed(triExchange, 200);
-        }
-        await rt.triFeed.start();
-        rt.triTimer = setInterval(() => { if (rt.triFeed && rt.triEngine) rt.triEngine.tick(rt.triFeed.getBooks()); }, mode === 'live' ? 250 : 200);
-        console.log(`[info] triangular arbitrage enabled on ${triExchange} for ${mode} (fee ${(triFee * 100).toFixed(3)}%)`);
-      } catch (err) {
-        console.error(`[engine] ${mode} triangular feed failed: ${(err as Error).message}`);
-      }
-    }
-
-    const restored = loadState(mode);
-    restoreRuntime(rt, restored);
-    return rt;
-  };
-
-  const runtimes: Record<DataMode, Runtime> = {
-    live: await makeRuntime('live'),
-    sim: await makeRuntime('sim'),
-  };
-
   // --- Strategy advisor state ---
   let strategyMode = prefs.strategy || 'cross'; // 'cross' | 'triangular' | 'auto'
   let effectiveStrategy = strategyMode === 'auto' ? 'cross' : strategyMode;
   let lastStrategySwitchAt = 0;
   const strategyEvents: { ts: number; from: string; to: string; reason: string }[] = [];
+  let runtimes: Record<DataMode, Runtime>;
 
   const activeRuntime = (): Runtime => runtimes[dataMode];
   const strategyStats = (): StrategyStat[] => {
@@ -237,7 +165,7 @@ async function main(): Promise<void> {
     return out;
   };
 
-  const onTick = (rt: Runtime, state: TickResult, books: OrderBook[]): void => {
+  function onTick(rt: Runtime, state: TickResult, books: OrderBook[]): void {
     const stats = rt.engine.getStats();
     const trades = rt.engine.getTrades().slice(-14).reverse();
 
@@ -303,7 +231,85 @@ async function main(): Promise<void> {
         events: strategyEvents.slice(-8).reverse(),
       },
     };
+  }
+
+  const makeRuntime = async (mode: DataMode): Promise<Runtime> => {
+    const sourceName: 'live' | 'sim-stream' = mode === 'live' ? 'live' : 'sim-stream';
+    const eventDriven = true;
+    const wallets = new WalletManager(buildBalances(trading.exchanges));
+    const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
+    engine.setActiveExchanges(prefs.activeExchanges);
+    engine.setRiskAppetite(prefs.riskAppetite);
+
+    const rt: Runtime = {
+      mode,
+      sourceName,
+      eventDriven,
+      source: null,
+      sourceError: null,
+      wallets,
+      engine,
+      pnlHistory: [],
+      priceSeries: {},
+      latest: null,
+      triEngine: null,
+      triFeed: null,
+      triTimer: null,
+    };
+
+    try {
+      rt.source = await buildSource(sourceName, trading, Math.min(tickIntervalMs, 120));
+      rt.source.onUpdate?.(() => {
+        if (!rt.source) return;
+        const books = rt.source.getBooks();
+        if (books.length < 2) return; // arbitrage needs ≥2 venues; trade whatever is live
+        onTick(rt, rt.engine.tick(books), books);
+      });
+      console.log(`[engine] ${mode} data source prepared (${rt.source.name})`);
+    } catch (err) {
+      rt.sourceError = err instanceof Error ? err.message : String(err);
+      console.error(`[engine] ${mode} source failed: ${rt.sourceError}`);
+    }
+
+    if (process.env.TRIANGULAR === '1') {
+      try {
+        const triExchange = process.env.TRI_EXCHANGE ?? 'binance';
+        const triFee = Number(process.env.TRI_TAKER ?? EXCHANGE_FEES[triExchange]?.taker ?? 0.001);
+        const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
+        rt.triEngine = new TriangularEngine({
+          exchange: triExchange, takerFee: triFee, notionalUSDT: triNotional,
+          minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
+        });
+        if (mode === 'live') {
+          const { CcxtTriFeed } = await import('../exchanges/tri-source');
+          rt.triFeed = new CcxtTriFeed(triExchange, trading.pollIntervalMs, trading.orderBookDepth);
+        } else {
+          const { SimTriFeed } = await import('../exchanges/tri-source');
+          rt.triFeed = new SimTriFeed(triExchange, 200);
+        }
+        await rt.triFeed.start();
+        rt.triTimer = setInterval(() => { if (rt.triFeed && rt.triEngine) rt.triEngine.tick(rt.triFeed.getBooks()); }, mode === 'live' ? 250 : 200);
+        console.log(`[info] triangular arbitrage enabled on ${triExchange} for ${mode} (fee ${(triFee * 100).toFixed(3)}%)`);
+      } catch (err) {
+        console.error(`[engine] ${mode} triangular feed failed: ${(err as Error).message}`);
+      }
+    }
+
+    const restored = loadState(mode);
+    restoreRuntime(rt, restored);
+    return rt;
   };
+
+  runtimes = {
+    live: await makeRuntime('live'),
+    sim: await makeRuntime('sim'),
+  };
+
+  for (const rt of Object.values(runtimes)) {
+    if (!rt.source) continue;
+    await rt.source.start();
+    console.log(`[engine] ${rt.mode} data source started (${rt.source.name})`);
+  }
 
   function restoreRuntime(rt: Runtime, restored: PersistedState | null): void {
     if (restored && restored.pnlHistory.length) {

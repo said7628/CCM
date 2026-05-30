@@ -162,3 +162,15 @@ curl http://localhost:8080/state
 - Se separaron engines, wallets, stats, P&L e históricos por modo para evitar mezclar métricas reales y simuladas.
 - El endpoint `/prices` responde el histórico del modo activo, y el frontend limpia su buffer local al detectar cambio de `dataMode`.
 - Si un runtime falla al iniciar su fuente, el otro puede seguir funcionando y el snapshot expone `sourceError` para facilitar diagnóstico.
+
+## Fix aplicado
+
+Se corrigió un bug crítico de inicialización en `src/server/index.ts`: el callback registrado en `source.onUpdate(...)` podía invocar `onTick(...)` antes de que la constante `onTick` hubiera sido inicializada, provocando el error `ReferenceError: Cannot access 'onTick' before initialization` y el crash del proceso bajo PM2.
+
+La corrección mantiene la arquitectura live/sim existente y no cambia fórmulas de arbitraje ni diseño del dashboard:
+
+- `onTick` ahora está definido como función antes de registrar cualquier callback de WebSocket o simulador que lo use.
+- Los runtimes LIVE y SIM se construyen primero con sus callbacks ya seguros.
+- Las fuentes se arrancan después de que `onTick`, el estado de estrategia y el registro de runtimes ya existen, evitando que cualquier emisión temprana de WebSocket/SimulatedSource ejecute código en temporal dead zone.
+
+Archivo corregido: `src/server/index.ts`.
