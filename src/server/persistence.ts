@@ -14,9 +14,14 @@ import path from 'path';
 
 export interface PnlPoint { t: number; pnl: number; value: number }
 
+/** A persisted per-exchange mid-price sample for the comparison chart. */
+export interface PricePoint { t: number; mid: number }
+
 export interface PersistedState {
   savedAt: number;
   pnlHistory: PnlPoint[];
+  /** Per-exchange rolling mid-price history so the 1H/15M chart survives reloads. */
+  priceSeries?: Record<string, PricePoint[]>;
   trades: unknown[];
   stats: unknown;
 }

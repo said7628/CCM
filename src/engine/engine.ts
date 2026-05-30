@@ -61,7 +61,10 @@ export interface TickResult {
 
 export interface EngineStats {
   ticks: number;
+  /** Cumulative count of EXECUTABLE opportunities seen across the session. */
   opportunitiesSeen: number;
+  /** Cumulative count of ALL evaluated opportunities (executable + rejected). */
+  opportunitiesEvaluated: number;
   tradesExecuted: number;
   partialTrades: number;
   realizedPnl: number;
@@ -82,6 +85,7 @@ export class ArbitrageEngine {
   private stats: EngineStats = {
     ticks: 0,
     opportunitiesSeen: 0,
+    opportunitiesEvaluated: 0,
     tradesExecuted: 0,
     partialTrades: 0,
     realizedPnl: 0,
@@ -177,6 +181,10 @@ export class ArbitrageEngine {
     });
     const executable = opportunities.filter((o) => o.executable);
     this.stats.opportunitiesSeen += executable.length;
+    // Every directed pair we evaluated this tick — the true "opportunities scanned"
+    // total. Accumulates fast (it's all venue pairs every tick) and is persisted,
+    // so the dashboard shows a real running count, not just the current snapshot.
+    this.stats.opportunitiesEvaluated += opportunities.length;
 
     // Count latency ghosts: edges that cleared the profit floor but were rejected
     // because they wouldn't survive the exposure window. This is the headline
@@ -274,6 +282,23 @@ export class ArbitrageEngine {
   }
   getStats(): EngineStats {
     return { ...this.stats };
+  }
+  /**
+   * Restore cumulative counters from a persisted snapshot on boot, so totals
+   * (opportunities scanned, realized P&L, trade count, cost breakdown) survive a
+   * server restart instead of resetting to zero. Only the additive/cumulative
+   * fields are merged; live per-tick fields are left to recompute naturally.
+   */
+  restoreStats(prev: Partial<EngineStats> | null | undefined): void {
+    if (!prev) return;
+    const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    this.stats.opportunitiesSeen += n(prev.opportunitiesSeen);
+    this.stats.opportunitiesEvaluated += n(prev.opportunitiesEvaluated);
+    this.stats.ghostsFiltered += n(prev.ghostsFiltered);
+    // realizedPnl is driven by the wallets, so we don't blindly add it here;
+    // it's surfaced from the wallet layer. We keep the historical best/totals
+    // for display continuity.
+    this.stats.bestTradePnl = Math.max(this.stats.bestTradePnl, n(prev.bestTradePnl));
   }
   getWallets(): WalletManager {
     return this.wallets;

@@ -156,19 +156,53 @@ async function main(): Promise<void> {
   }
 
   const pnlHistory: { t: number; pnl: number; value: number }[] = [];
+  // Server-side per-exchange mid-price history. Lives here (not just in the
+  // browser) so the comparison chart's 15M/1H windows survive page reloads and
+  // server restarts, and so every reconnecting client sees the same history.
+  const priceSeries: Record<string, { t: number; mid: number }[]> = {};
+  const PRICE_SERIES_MAX = 3700; // ~1h at ~1 sample/sec per exchange
   let latest: object | null = null;
 
-  // Restore P&L curve from disk so the dashboard chart / backtesting view (and
-  // reconnecting clients) survive a server restart during a demo.
+  // Restore P&L curve, cumulative stats and the price series from disk so the
+  // dashboard (and reconnecting clients) survive a server restart during a demo.
   const restored = loadState();
   if (restored && restored.pnlHistory.length) {
     pnlHistory.push(...restored.pnlHistory.slice(-PNL_HISTORY_MAX));
     console.log(`[persist] restored ${pnlHistory.length} P&L points from disk`);
   }
+  if (restored && restored.stats) {
+    engine.restoreStats(restored.stats as Partial<ReturnType<typeof engine.getStats>>);
+    console.log('[persist] restored cumulative stats from disk');
+  }
+  if (restored && restored.priceSeries) {
+    for (const [ex, arr] of Object.entries(restored.priceSeries)) {
+      if (Array.isArray(arr)) priceSeries[ex] = arr.slice(-PRICE_SERIES_MAX);
+    }
+    const n = Object.values(priceSeries).reduce((a, b) => a + b.length, 0);
+    if (n) console.log(`[persist] restored ${n} price samples across ${Object.keys(priceSeries).length} exchanges`);
+  }
 
   const onTick = (state: TickResult, books: OrderBook[]): void => {
     const stats = engine.getStats();
     const trades = engine.getTrades().slice(-14).reverse();
+
+    // Append each venue's current mid to the server-side price history (used by
+    // the comparison chart's 15M/1H windows). Throttled to ~1 sample/sec/venue
+    // so an hour of data stays bounded.
+    const nowMs = state.timestamp;
+    for (const b of books) {
+      const bid = b.bids[0]?.price;
+      const ask = b.asks[0]?.price;
+      const mid = bid !== undefined && ask !== undefined ? (bid + ask) / 2 : (ask ?? bid);
+      if (mid === undefined || !Number.isFinite(mid)) continue;
+      const arr = (priceSeries[b.exchange] = priceSeries[b.exchange] || []);
+      const last = arr[arr.length - 1];
+      if (!last || nowMs - last.t >= 1000) {
+        arr.push({ t: nowMs, mid });
+        if (arr.length > PRICE_SERIES_MAX) arr.shift();
+      }
+    }
+
     latest = {
       ts: state.timestamp,
       mode,
@@ -265,6 +299,7 @@ async function main(): Promise<void> {
     saveState({
       savedAt: Date.now(),
       pnlHistory,
+      priceSeries,
       trades: engine.getTrades().slice(-50),
       stats: s,
     });
@@ -352,6 +387,12 @@ async function main(): Promise<void> {
         riskAppetite: engine.getRiskAppetite(),
         strategy: strategyMode,
       }));
+    } else if (url === '/prices') {
+      // Per-exchange mid-price history for the comparison chart. Fetched once on
+      // boot so the 15M/1H windows are populated immediately (and survive
+      // reloads), instead of starting empty and filling only going forward.
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(priceSeries));
     } else if (url === '/state') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(latest ?? {}));
@@ -366,7 +407,7 @@ async function main(): Promise<void> {
   });
 
   process.on('SIGINT', () => {
-    flushState({ savedAt: Date.now(), pnlHistory, trades: engine.getTrades().slice(-50), stats: engine.getStats() });
+    flushState({ savedAt: Date.now(), pnlHistory, priceSeries, trades: engine.getTrades().slice(-50), stats: engine.getStats() });
     void source.stop().then(() => process.exit(0));
   });
 }
