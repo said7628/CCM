@@ -11,9 +11,6 @@
  */
 import http from 'http';
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from "node:url";
 import { loadConfig, EXCHANGE_FEES, buildBalances } from '../domain/config';
 import { WalletManager } from '../engine/wallet';
 import { ArbitrageEngine, type TickResult } from '../engine/engine';
@@ -24,8 +21,6 @@ import type { OrderBook, Opportunity } from '../domain/types';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PNL_HISTORY_MAX = 180;
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function buildSource(
   mode: string,
@@ -202,20 +197,22 @@ async function main(): Promise<void> {
     for (const res of clients) res.write(frame);
   }, 100);
 
-  const indexHtml = path.join(__dirname, 'public', 'index.html');
 
   const server = http.createServer((req, res) => {
     const url = (req.url ?? '/').split('?')[0];
-    if (url === '/' || url === '/index.html') {
-      fs.readFile(indexHtml, (err, data) => {
-        if (err) {
-          res.writeHead(500);
-          res.end('dashboard not found');
-        } else {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(data);
-        }
-      });
+    // CORS: the Next.js dashboard runs on a different origin in dev (:3000) and
+    // may be served from another host in prod. Allow the SSE/JSON endpoints.
+    res.setHeader('Access-Control-Allow-Origin', process.env.CORS_ORIGIN ?? '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    if (url === '/' || url === '/health') {
+      // The UI is the Next.js app now; this server only provides the data API.
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ service: 'btc-arbitrage-engine', endpoints: ['/stream', '/state', '/control'], live: latest !== null }));
     } else if (url === '/stream') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',

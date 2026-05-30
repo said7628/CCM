@@ -114,7 +114,7 @@ export function PriceChart({ data }: PriceChartProps) {
               }}
               labelStyle={{ color: "#0f172a", fontWeight: 600 }}
               itemStyle={{ color: "#64748b", fontWeight: 400 }}
-              formatter={(value: number) => [`$${value.toLocaleString()}`, ""]}
+              formatter={(value) => [`$${Number(value).toLocaleString()}`, ""]}
             />
             {series.map((item) => (
               <Line

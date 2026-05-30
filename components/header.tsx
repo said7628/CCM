@@ -1,6 +1,6 @@
 import { Bell, ChevronDown, Search, Sun } from "lucide-react";
 
-export function Header() {
+export function Header({ connected = true }: { connected?: boolean }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/82 px-5 py-4 backdrop-blur-xl lg:px-8">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -21,8 +21,8 @@ export function Header() {
           </div>
 
           <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_6px_rgba(16,185,129,0.12)]" />
-            <span className="text-sm font-medium text-slate-800">Motor activo</span>
+            <span className={`h-2.5 w-2.5 rounded-full ${connected ? "bg-emerald-500 shadow-[0_0_0_6px_rgba(16,185,129,0.12)]" : "bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.12)]"}`} />
+            <span className="text-sm font-medium text-slate-800">{connected ? "Motor activo" : "Reconectando…"}</span>
           </div>
 
           <button className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-cyan-200 hover:text-cyan-600">

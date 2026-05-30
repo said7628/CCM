@@ -8,6 +8,39 @@ swappable architecture.
 
 ## Quick start
 
+The system is two processes: the **engine** (data + arbitrage logic, exposes an
+SSE API) and the **Next.js dashboard** (the web UI, "ArbiCore").
+
+```bash
+npm install
+
+# 1) Start the engine (pick a data source):
+SOURCE=sim-stream npm run server         # simulated, no network — great for demos
+SOURCE=live EXCHANGES=binance,kraken,okx npm run server   # live market data
+
+# 2) In another terminal, start the dashboard:
+npm run dev        # http://localhost:3000  (proxies /stream to the engine on :8080)
+
+# Engine-only console dashboards (no web UI needed):
+npm run cli                      # stepped simulated
+SOURCE=sim-stream npm run cli    # event-driven
+
+# Test suite (80 assertions on the pure engine + book logic):
+npm test
+```
+
+In production both run behind one origin: the Next.js config rewrites
+`/stream`, `/state`, `/control` to the engine (`ENGINE_ORIGIN`, default
+`http://127.0.0.1:8080`), so the browser only ever talks to the Next.js host —
+no CORS, no client URL config. Build & serve:
+
+```bash
+SOURCE=live EXCHANGES=binance,kraken,okx PORT=8080 npm run server &  # engine
+npm run build && npm run start                                       # dashboard on :3000
+```
+
+### Original engine-only quick start (reference)
+
 ```bash
 npm install
 
