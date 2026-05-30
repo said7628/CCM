@@ -312,17 +312,150 @@
   .seg button.on{background:var(--teal-dim);color:var(--teal-2);border-color:color-mix(in srgb,var(--teal) 30%,transparent);}
   .reco-badge{width:46px;height:46px;border-radius:13px;background:var(--accent-grad);color:#fff;display:grid;place-items:center;font-size:22px;flex:none;box-shadow:0 6px 16px color-mix(in srgb,var(--teal) 35%,transparent);}
 
-  @media(max-width:1180px){
+  .mobile-nav{display:none;}
+
+  /* ---------- responsive breakpoints ----------
+     1280px+ keeps the desktop composition intact. The rules below only adapt
+     laptop/tablet/mobile widths to avoid crowding and global horizontal scroll. */
+  @media(max-width:1279px){
+    .app{grid-template-columns:224px minmax(0,1fr);}
+    .side{padding:16px 12px;}
+    .main{padding:0 20px 52px;}
+    .topbar{gap:12px;}
+    .top-tools{gap:9px;}
+    .search{width:220px;}
+    .render{display:none;}
+    .user{padding-right:8px;}
     .hero,.kpiwrap,.cmpwrap,.row3{grid-template-columns:1fr;}
     .row4{grid-template-columns:1fr;}
     .pnlcard{grid-template-columns:1fr;}
+    .riskgrid{grid-template-columns:repeat(2,minmax(0,1fr));}
   }
-  @media(max-width:880px){
-    .app{grid-template-columns:1fr;}
+
+  @media(max-width:1023px){
+    html,body{max-width:100%;overflow-x:hidden;}
+    .app{display:block;min-width:0;}
     .side{display:none;}
-    .kpis{grid-template-columns:1fr 1fr;}
-    .hero-art{width:44%;right:-34px;opacity:.55;}
-    .top-tools .search,.render{display:none;}
+    .main{padding:0 18px 44px;}
+    .topbar{position:sticky;top:0;display:grid;grid-template-columns:1fr;gap:12px;padding:16px 0 10px;background:linear-gradient(180deg,var(--bg) 82%,transparent);}
+    .hello{min-width:0;}
+    .hello h1{font-size:20px;}
+    .hello p{max-width:680px;}
+    .top-tools{margin-left:0;display:grid;grid-template-columns:minmax(240px,1fr) auto auto auto auto;gap:10px;width:100%;align-items:center;}
+    .search{width:100%;min-width:0;min-height:44px;}
+    .pill,.modepill{min-height:44px;padding:8px 12px;}
+    .iconbtn{width:44px;height:44px;}
+    .user{min-height:44px;max-width:150px;min-width:0;}
+    .user>div:last-child{min-width:0;}
+    .user .nm,.user .rl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .mobile-nav{position:sticky;top:82px;z-index:19;display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;margin:0 -18px 16px;padding:8px 18px 12px;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 92%,transparent),color-mix(in srgb,var(--bg) 74%,transparent));backdrop-filter:blur(8px);}
+    .mobile-nav::-webkit-scrollbar{display:none;}
+    .mobile-nav a{flex:0 0 auto;min-height:44px;display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border-radius:13px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow-sm);color:var(--text-2);font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;}
+    .mobile-nav a svg{width:17px;height:17px;flex:none;}
+    .mobile-nav a.on{background:var(--teal-dim);border-color:color-mix(in srgb,var(--teal) 24%,transparent);color:var(--teal-2);}
+    .mobile-nav .badge{font-size:10px;background:var(--teal);color:#fff;border-radius:20px;padding:1px 7px;min-width:18px;text-align:center;}
+    .hero{grid-template-columns:1fr;}
+    .hero-r{min-height:190px;}
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .exrow{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .cfg{grid-template-columns:1fr;}
+    .mode-card .mode-head{flex-direction:column;}
+    .mode-toggle{width:100%;min-width:0;}
+    .sechead{gap:12px;align-items:flex-start;}
+    .card{min-width:0;}
+    .card.pad:has(table){overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .card.pad:has(table) table{min-width:680px;}
+    .card.pad:has(#scanBody) table{min-width:560px;}
+    .card.pad:has(#balTable) table,.card.pad:has(#stratTable) table{min-width:600px;}
+  }
+
+  @media(max-width:767px){
+    body{font-size:12.5px;}
+    .main{padding:0 14px 36px;}
+    .topbar{padding-top:12px;}
+    .hello h1{font-size:19px;}
+    .hello p{font-size:12px;}
+    .top-tools{grid-template-columns:1fr auto auto;gap:8px;}
+    .top-tools .search{grid-column:1 / -1;order:2;}
+    .pill{max-width:150px;justify-content:center;overflow:hidden;text-overflow:ellipsis;}
+    .modepill{max-width:150px;justify-content:center;}
+    .modepill span:last-child,.pill span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .user{display:none;}
+    .mobile-nav{top:124px;margin:0 -14px 14px;padding:7px 14px 11px;}
+    .pad{padding:15px;}
+    .hero-l h2{font-size:24px;max-width:100%;}
+    .hero-l p{font-size:12.5px;}
+    .hero-r{padding:19px;min-height:178px;}
+    .hero-r h3{font-size:20px;max-width:72%;}
+    .hero-r p{max-width:70%;}
+    .hero-art{width:48%;right:-34px;opacity:.55;}
+    .kpis{gap:10px;}
+    .kpi{min-height:104px;padding:13px;}
+    .kpi .ic{width:34px;height:34px;}
+    .kpi .v{font-size:20px;white-space:normal;overflow:visible;word-break:break-word;}
+    .pnlcard{padding:15px;}
+    .pnlcard .big{font-size:30px;word-break:break-word;}
+    .ministats{grid-template-columns:1fr;}
+    .pnl-viz{min-height:190px;}
+    .chartbox{min-height:166px;}
+    .exrow{grid-template-columns:1fr;}
+    .excard .price{font-size:21px;word-break:break-word;}
+    .cmpwrap [style*="height:230px"]{height:210px!important;}
+    .row3,.row4,.cmpwrap{gap:14px;margin-top:14px;}
+    .riskgrid,.rsplit{grid-template-columns:1fr;}
+    .sechead{flex-direction:column;margin-bottom:12px;}
+    .sechead>div:last-child{width:100%;}
+    .tabs{width:100%;overflow-x:auto;}
+    .tabs button{min-height:34px;flex:1;}
+    select,.btnlink,.seg button,.mode-toggle button{min-height:44px;}
+    .seg{flex-wrap:wrap;}
+    .seg button{flex:1 1 calc(50% - 6px);}
+    .mode-toggle{grid-template-columns:1fr;}
+    .cfg .item{align-items:flex-start;gap:8px;flex-direction:column;}
+    .alertitem{align-items:flex-start;}
+    .alertitem .tm{margin-left:0;}
+    .placeholder{padding:34px 16px;}
+  }
+
+  @media(max-width:479px){
+    .main{padding:0 10px 30px;}
+    .top-tools{grid-template-columns:1fr auto;}
+    .pill,.modepill{max-width:none;min-width:0;padding:8px 10px;font-size:10.5px;}
+    .modepill{grid-column:1 / 2;}
+    .iconbtn{width:44px;height:44px;}
+    .mobile-nav{top:126px;margin:0 -10px 12px;padding:6px 10px 10px;}
+    .mobile-nav a{font-size:11.5px;padding:8px 10px;}
+    .hero{gap:12px;margin-bottom:12px;}
+    .hero-l h2{font-size:22px;}
+    .hero-chips{gap:8px;}
+    .hchip{width:100%;justify-content:center;padding:9px 10px;}
+    .hero-r h3,.hero-r p{max-width:78%;}
+    .kpiwrap{gap:12px;margin-bottom:12px;}
+    .kpis{grid-template-columns:1fr;}
+    .pnlcard .big{font-size:27px;}
+    .mini .v{font-size:15px;}
+    .donut{transform:scale(.9);margin:-8px 0;}
+    .ring{transform:scale(.92);margin:-6px 0;}
+    .nettag{flex-direction:column;align-items:flex-start;gap:4px;}
+    .card.pad:has(table) table{min-width:620px;}
+    .card.pad:has(#scanBody) table{min-width:520px;}
+    .card.pad:has(#oppFull) table{min-width:780px;}
+    .card.pad:has(#opsFull) table,.card.pad:has(#logBody) table{min-width:700px;}
+    .card.pad:has(#stratTable) table{min-width:640px;}
+  }
+
+  @media(max-width:340px){
+    .main{padding-left:8px;padding-right:8px;}
+    .pad{padding:13px;}
+    .hello h1{font-size:18px;}
+    .top-tools{gap:7px;}
+    .pill,.modepill{font-size:10px;}
+    .mobile-nav{margin-left:-8px;margin-right:-8px;padding-left:8px;padding-right:8px;}
+    .hero-l h2{font-size:20px;}
+    .hero-r{min-height:166px;padding:16px;}
+    .hero-r h3{font-size:18px;}
+    .hero-r p{font-size:11.5px;}
+    .pnlcard .big{font-size:25px;}
   }
 </style>
 </head>
@@ -363,6 +496,8 @@
         <div class="user"><div class="av">AR</div><div><div class="nm">ArbiTrader</div><div class="rl">Cuenta Pro</div></div></div>
       </div>
     </header>
+
+    <nav class="mobile-nav" id="mobileNav" aria-label="Navegación principal móvil"></nav>
 
     <div id="views"></div>
   </main>
@@ -437,19 +572,23 @@ const NAV = [
 ];
 let activeView = PREF.view && NAV.some((n) => n[0] === PREF.view) ? PREF.view : "resumen";
 
-$("nav").innerHTML = NAV.map(([id, label]) =>
-  `<a data-v="${id}" class="${id === activeView ? "on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]}</svg>${label}${id === "oportunidades" ? '<span class="badge" id="navOppBadge">0</span>' : ""}${id === "alertas" ? '<span class="badge" id="navAlertBadge">0</span>' : ""}</a>`
-).join("");
+const renderNav = (targetId, badgeSuffix = "") => {
+  $(targetId).innerHTML = NAV.map(([id, label]) =>
+    `<a data-v="${id}" class="${id === activeView ? "on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]}</svg><span>${label}</span>${id === "oportunidades" ? `<span class="badge" id="navOppBadge${badgeSuffix}">0</span>` : ""}${id === "alertas" ? `<span class="badge" id="navAlertBadge${badgeSuffix}">0</span>` : ""}</a>`
+  ).join("");
+};
+renderNav("nav");
+renderNav("mobileNav", "Mobile");
 
 /* build a container per view */
 $("views").innerHTML = NAV.map(([id]) => `<section class="view ${id === activeView ? "on" : ""}" id="view-${id}"></section>`).join("");
 const VHTML = {}; // static skeleton injected lazily
 
-document.querySelectorAll("#nav a").forEach((a) => {
+document.querySelectorAll("#nav a, #mobileNav a").forEach((a) => {
   a.onclick = () => {
     const v = a.dataset.v;
     activeView = v; PREF.view = v; savePrefs();
-    document.querySelectorAll("#nav a").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
+    document.querySelectorAll("#nav a, #mobileNav a").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
     document.querySelectorAll(".view").forEach((x) => x.classList.toggle("on", x.id === "view-" + v));
     ensureSkeleton(v); markDirty(true);
   };
@@ -808,8 +947,10 @@ function renderTop(s) {
   // nav badges
   const oppExec = (s.opportunities || []).filter((o) => o.executable).length;
   setText("navOppBadge", oppExec);
+  setText("navOppBadgeMobile", oppExec);
   const alerts = computeAlerts(s);
   setText("navAlertBadge", alerts.length);
+  setText("navAlertBadgeMobile", alerts.length);
   setText("alertNb", alerts.length);
 }
 function cap0(s){return s? s.charAt(0).toUpperCase()+s.slice(1):s;}
