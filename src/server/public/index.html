@@ -143,7 +143,7 @@
   .kpi .k{font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--dim);font-weight:800;}
   .kpi .ic{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,var(--teal-dim),color-mix(in srgb,var(--blue) 9%,var(--panel)));color:var(--teal-2);display:grid;place-items:center;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--teal) 18%,transparent),0 8px 18px color-mix(in srgb,var(--teal) 15%,transparent);}
   .kpi .ic svg{width:18px;height:18px;}
-  .kpi .v{font-size:25px;font-weight:800;letter-spacing:-.7px;margin-top:9px;}
+  .kpi .v{font-size:23px;font-weight:800;letter-spacing:-.6px;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .kpi .s{font-size:11px;color:var(--dim);margin-top:4px;}
   .pnlcard{position:relative;overflow:hidden;padding:16px 18px;display:grid;grid-template-columns:minmax(220px,.9fr) minmax(260px,1.1fr);gap:16px;align-items:stretch;}
   .pnlcard:before{content:"";position:absolute;inset:0;background:radial-gradient(440px 220px at 0% 0%,color-mix(in srgb,var(--teal) 10%,transparent),transparent 62%);pointer-events:none;}
@@ -168,6 +168,7 @@
   /* exchange price cards */
   .exrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
   .excard{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--panel-soft);transition:.15s;}
+  .excard.inactive{opacity:.42;filter:grayscale(.5);}
   .excard:hover{border-color:color-mix(in srgb,var(--teal) 28%,transparent);box-shadow:var(--shadow-sm);}
   .excard .top{display:flex;align-items:center;gap:10px;}
   .exlogo{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:800;color:#fff;font-size:13px;}
@@ -375,6 +376,13 @@ const EX = {
   gemini: { c: "#16b3c4", n: "Gemini" }, bybit: { c: "#f0a93b", n: "Bybit" },
 };
 const exMeta = (id) => EX[id] || { c: "#7d93a4", n: cap(id) };
+// Returns a predicate (id)=>bool for whether an exchange is active. null activeExchanges = all on.
+function activeSet(s) {
+  const act = s && s.activeExchanges;
+  if (!act) return () => true;
+  const set = new Set(act);
+  return (id) => set.has(id);
+}
 const REASONS = {
   negative_net: "Fees exceeded spread", below_threshold: "Below threshold",
   no_liquidity: "No liquidity", insufficient_balance: "Low balance",
@@ -810,7 +818,7 @@ function renderResumen(s) {
   const riskLvl = s.risk && s.risk.breakerActive ? "Alto" : (s.risk && s.risk.drawdown > 0 ? "Medio" : "Bajo");
 
   // KPIs (deduplicated — Portfolio value carries the capital-in-use as subtext)
-  $("kPort").textContent = usdc(s.portfolio ? s.portfolio.totalValueQuote : 0);
+  $("kPort").textContent = usd(s.portfolio ? s.portfolio.totalValueQuote : 0);
   const baseVal = (s.portfolio ? s.portfolio.totalBase : 0) * (s.markPrice || 0);
   const usePct = s.portfolio && s.portfolio.totalValueQuote ? (baseVal / s.portfolio.totalValueQuote) * 100 : 0;
   setText("kPortSub", usePct.toFixed(1) + "%");
@@ -826,15 +834,20 @@ function renderResumen(s) {
 
   setText("heroLat", (s.bookAgeMs || 0) + " ms");
 
-  // exchange cards
-  $("exrow").innerHTML = (s.books || []).map((b) => exchangeCard(b, s.markPrice)).join("") || `<div class="empty">Esperando feeds…</div>`;
+  // Active-exchange filter: hide deactivated venues from the dashboard so they
+  // don't confuse the read (they keep streaming server-side, just not shown).
+  const actSet = activeSet(s);
+  const shownBooks = (s.books || []).filter((b) => actSet(b.exchange));
 
-  // comparison chart + legend
-  drawCmp($("cmpChart"));
-  $("cmpLegend").innerHTML = Object.keys(PRICE).map((ex) => `<span><i style="background:${exMeta(ex).c}"></i>${exMeta(ex).n}</span>`).join("");
+  // exchange cards (only active)
+  $("exrow").innerHTML = shownBooks.map((b) => exchangeCard(b, s.markPrice)).join("") || `<div class="empty">No hay exchanges activos. Actívalos en la pestaña Exchanges.</div>`;
 
-  // scanner
-  $("scanBody").innerHTML = (s.opportunities || []).slice(0, 5).map((o) => {
+  // comparison chart + legend (only active)
+  drawCmp($("cmpChart"), actSet);
+  $("cmpLegend").innerHTML = Object.keys(PRICE).filter(actSet).map((ex) => `<span><i style="background:${exMeta(ex).c}"></i>${exMeta(ex).n}</span>`).join("");
+
+  // scanner (only opportunities whose both legs are active)
+  $("scanBody").innerHTML = (s.opportunities || []).filter((o) => actSet(o.buyExchange) && actSet(o.sellExchange)).slice(0, 5).map((o) => {
     const ghost = o.rejectReason === "latency_risk";
     const stt = o.executable ? `<span class="stbadge st-exec">Ejecutable</span>` : `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${REASONS[o.rejectReason] || "Rechazada"}</span>`;
     const vol = o.amount ? (o.buyPrice * o.amount) : 0;
@@ -919,7 +932,8 @@ function renderHealth(s) {
 
 /* ===== OPORTUNIDADES ===== */
 function renderOppsView(s) {
-  $("oppFull").innerHTML = (s.opportunities || []).map((o) => {
+  const actSet = activeSet(s);
+  $("oppFull").innerHTML = (s.opportunities || []).filter((o) => actSet(o.buyExchange) && actSet(o.sellExchange)).map((o) => {
     const ghost = o.rejectReason === "latency_risk";
     const stt = o.executable ? `<span class="stbadge st-exec">Ejecutable</span>` : `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${REASONS[o.rejectReason] || "Rechazada"}</span>`;
     const vol = o.amount ? o.buyPrice * o.amount : 0;
@@ -956,7 +970,11 @@ const CONNECTORS = [
 ];
 function renderExchangesView(s) {
   renderExchangeToggles(s);
-  $("exrow2").innerHTML = (s.books || []).map((b) => exchangeCard(b, s.markPrice)).join("") || `<div class="empty">Esperando feeds…</div>`;
+  const actSet = activeSet(s);
+  $("exrow2").innerHTML = (s.books || []).map((b) => {
+    const card = exchangeCard(b, s.markPrice);
+    return actSet(b.exchange) ? card : card.replace('class="excard"', 'class="excard inactive"');
+  }).join("") || `<div class="empty">Esperando feeds…</div>`;
   setText("exCount", (s.books || []).length + " conectados");
   const wl = (s.wallets || []).map((w) => ({ ex: w.exchange, base: w.base, quote: w.quote, val: w.base * (s.markPrice || 0) + w.quote }));
   const total = wl.reduce((a, b) => a + b.val, 0);
@@ -970,17 +988,28 @@ function renderExchangesView(s) {
 
 /* exchange enable/disable toggles — selection persisted server-side */
 let _exToggleBuilt = false;
+let _exPending = null;       // the selection we last sent; null once server confirms it
+let _exPendingAt = 0;        // when we sent it
 function ctl(cmd, value) {
   const u = "/control?cmd=" + cmd + (value !== undefined ? "&value=" + encodeURIComponent(value) : "");
   fetch(u).catch(() => {});
 }
+// normalize an active-list (null = all) into a comparable sorted CSV
+function _normActive(active, connected) {
+  if (!active) return connected.slice().sort().join(",");
+  return active.slice().sort().join(",");
+}
 function renderExchangeToggles(s) {
   const connected = (s.exchanges && s.exchanges.length ? s.exchanges : (s.books || []).map((b) => b.exchange));
-  const active = s.activeExchanges; // null => all active
-  const isOn = (id) => !active || active.includes(id);
+  const serverActive = s.activeExchanges; // null => all active
+  const serverNorm = _normActive(serverActive, connected);
+  const isOn = (id) => !serverActive || serverActive.includes(id);
   const wrap = $("exToggles");
   if (!wrap) return;
-  // Build once; afterwards only sync on/off classes so live frames don't eat clicks.
+
+  // If the server has caught up to our last sent selection, clear the pending lock.
+  if (_exPending !== null && _exPending === serverNorm) _exPending = null;
+
   if (!_exToggleBuilt || wrap.children.length !== connected.length) {
     wrap.innerHTML = connected.map((id) => {
       const m = exMeta(id);
@@ -990,20 +1019,30 @@ function renderExchangeToggles(s) {
       el.onclick = () => {
         el.classList.toggle("on"); el.classList.toggle("off");
         const chosen = [...wrap.querySelectorAll(".extog.on")].map((x) => x.dataset.ex);
-        // all selected => send empty (clears filter = all active)
-        ctl("exchanges", chosen.length === connected.length ? "" : chosen.join(","));
+        // remember our intent so incoming (stale) frames don't revert it
+        _exPending = chosen.slice().sort().join(",");
+        _exPendingAt = Date.now();
+        ctl("exchanges", chosen.length === connected.length ? "" : (chosen.length ? chosen.join(",") : "__none__"));
       };
     });
     const all = $("exAll"), none = $("exNone");
-    if (all) all.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.add("on"); x.classList.remove("off"); }); ctl("exchanges", ""); };
-    if (none) none.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.remove("on"); x.classList.add("off"); }); ctl("exchanges", "__none__"); };
+    if (all) all.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.add("on"); x.classList.remove("off"); }); _exPending = connected.slice().sort().join(","); _exPendingAt = Date.now(); ctl("exchanges", ""); };
+    if (none) none.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.remove("on"); x.classList.add("off"); }); _exPending = ""; _exPendingAt = Date.now(); ctl("exchanges", "__none__"); };
     _exToggleBuilt = true;
   } else {
-    // sync state from server (e.g. another browser changed it)
-    wrap.querySelectorAll(".extog").forEach((el) => {
-      const on = isOn(el.dataset.ex);
-      el.classList.toggle("on", on); el.classList.toggle("off", !on);
-    });
+    // Don't let server frames overwrite the user's intent while a change is in
+    // flight (SSE is ~10fps, so a stale frame can arrive after the click and
+    // revert it — this was the "OKX turns itself back on" bug). We only sync
+    // from the server once it confirms our pending selection, or after a grace
+    // window in case the request was dropped.
+    const inFlight = _exPending !== null && (Date.now() - _exPendingAt) < 4000;
+    if (!inFlight) {
+      _exPending = null;
+      wrap.querySelectorAll(".extog").forEach((el) => {
+        const on = isOn(el.dataset.ex);
+        el.classList.toggle("on", on); el.classList.toggle("off", !on);
+      });
+    }
   }
 }
 
@@ -1168,10 +1207,11 @@ function drawPnl(c, hist, big) {
   ctx.beginPath(); ctx.moveTo(x(0), y(ys[0])); ys.forEach((v, i) => ctx.lineTo(x(i), y(v))); ctx.lineTo(x(ys.length - 1), y(min)); ctx.lineTo(x(0), y(min)); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
   ctx.beginPath(); ys.forEach((v, i) => (i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v)))); ctx.strokeStyle = green; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.stroke();
 }
-function drawCmp(c) {
+function drawCmp(c, filter) {
   if (!c) return; const { ctx, w, h } = fit(c); ctx.clearRect(0, 0, w, h);
+  const ok = filter || (() => true);
   const cutoff = Date.now() - timeframe * 1000;
-  const series = Object.entries(PRICE).map(([ex, arr]) => [ex, arr.filter((p) => p.t >= cutoff)]).filter(([, a]) => a.length > 1);
+  const series = Object.entries(PRICE).filter(([ex]) => ok(ex)).map(([ex, arr]) => [ex, arr.filter((p) => p.t >= cutoff)]).filter(([, a]) => a.length > 1);
   if (!series.length) { ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--dim"); ctx.font = "12px Manrope"; ctx.fillText("Recolectando datos en vivo…", 12, h / 2); return; }
   let lo = Infinity, hi = -Infinity, t0 = Infinity, t1 = -Infinity;
   series.forEach(([, a]) => a.forEach((p) => { lo = Math.min(lo, p.mid); hi = Math.max(hi, p.mid); t0 = Math.min(t0, p.t); t1 = Math.max(t1, p.t); }));
