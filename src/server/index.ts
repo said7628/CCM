@@ -4,10 +4,9 @@
  * extra dependency, perfect for a one-way live feed. The browser opens
  * EventSource('/stream') and receives a JSON state snapshot on every change.
  *
- *   PORT=8080 SOURCE=live npm run server     # live Binance + Kraken
- *   npm run server                           # simulated feed (no network)
- *
- * Just another consumer of the same engine — no business logic here.
+ * Data mode is a persisted server-side setting (live | sim). Both sources can
+ * keep running so WebSockets stay connected while the dashboard switches the
+ * single active data plane shown to users.
  */
 import http from 'http';
 import fs from 'fs';
@@ -19,12 +18,15 @@ import { SimulatedSource, type MarketDataSource } from '../exchanges/source';
 import { TriangularEngine } from '../exchanges/triangular';
 import type { TriFeed } from '../exchanges/tri-source';
 import type { OrderBook, Opportunity } from '../domain/types';
-import { loadState, saveState, flushState } from './persistence';
-import { loadPrefs, savePrefs, type EnginePrefs } from './prefs';
+import { loadState, saveState, flushState, type PersistedState } from './persistence';
+import { loadPrefs, savePrefs, type DataMode, type EnginePrefs } from './prefs';
 import { recommend, decideAutoSwitch, type StrategyStat } from '../engine/strategies';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PNL_HISTORY_MAX = 180;
+const PRICE_SERIES_MAX = 3700; // ~1h at ~1 sample/sec per exchange
+const DATA_MODE_LABEL: Record<DataMode, string> = { live: 'Modo Real', sim: 'Modo Simulación' };
+const SOURCE_STATUS: Record<DataMode, string> = { live: 'real_market_data', sim: 'simulation_engine' };
 
 async function buildSource(
   mode: string,
@@ -89,37 +91,72 @@ function oppView(o: Opportunity): object {
   };
 }
 
+function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk.toString();
+      if (raw.length > 4096) {
+        reject(new Error('body too large'));
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      if (!raw.trim()) return resolve({});
+      try { resolve(JSON.parse(raw)); } catch (err) { reject(err); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function isDataMode(v: unknown): v is DataMode {
+  return v === 'live' || v === 'sim';
+}
+
+interface Runtime {
+  mode: DataMode;
+  sourceName: 'live' | 'sim-stream';
+  eventDriven: boolean;
+  source: MarketDataSource | null;
+  sourceError: string | null;
+  wallets: WalletManager;
+  engine: ArbitrageEngine;
+  pnlHistory: { t: number; pnl: number; value: number }[];
+  priceSeries: Record<string, { t: number; mid: number }[]>;
+  latest: object | null;
+  triEngine: TriangularEngine | null;
+  triFeed: TriFeed | null;
+  triTimer: NodeJS.Timeout | null;
+}
+
 async function main(): Promise<void> {
   const { trading, risk } = loadConfig();
-  const mode = process.env.SOURCE ?? 'sim';
-  const eventDriven = mode === 'live' || mode === 'sim-stream';
   const tickIntervalMs = Number(process.env.INTERVAL_MS ?? 250);
 
-  const wallets = new WalletManager(buildBalances(trading.exchanges));
-  const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
-
-  // Restore engine preferences (active exchanges, risk appetite) from disk so the
-  // user's choices survive restarts and are shared across browsers/devices.
+  // Restore engine preferences (active exchanges, risk appetite, strategy and the
+  // global data mode) from disk so choices survive restarts and are shared across
+  // browsers/devices. dataMode defaults to live for safety.
   const prefs: EnginePrefs = loadPrefs();
-  engine.setActiveExchanges(prefs.activeExchanges);
-  engine.setRiskAppetite(prefs.riskAppetite);
+  let dataMode: DataMode = prefs.dataMode;
+  console.log(`[engine] using ${dataMode === 'live' ? 'live source' : 'simulation source'}`);
 
   // --- Strategy advisor state ---
-  // 'cross' = cross-exchange (always available). 'triangular' only when enabled.
-  // 'auto' lets the advisor pick; we track the *effective* strategy separately.
   let strategyMode = prefs.strategy || 'cross'; // 'cross' | 'triangular' | 'auto'
   let effectiveStrategy = strategyMode === 'auto' ? 'cross' : strategyMode;
   let lastStrategySwitchAt = 0;
   const strategyEvents: { ts: number; from: string; to: string; reason: string }[] = [];
+  let runtimes: Record<DataMode, Runtime>;
 
+  const activeRuntime = (): Runtime => runtimes[dataMode];
   const strategyStats = (): StrategyStat[] => {
-    const s = engine.getStats();
+    const rt = activeRuntime();
+    const s = rt.engine.getStats();
     const out: StrategyStat[] = [{
       id: 'cross', label: 'Cross-Exchange', realizedPnl: s.realizedPnl,
       trades: s.tradesExecuted, opportunitiesSeen: s.opportunitiesSeen, bestNetPct: 0,
     }];
-    if (triEngine) {
-      const t = triEngine.getState();
+    if (rt.triEngine) {
+      const t = rt.triEngine.getState();
       out.push({
         id: 'triangular', label: 'Triangular', realizedPnl: t.stats.realizedPnl,
         trades: t.stats.trades, opportunitiesSeen: t.stats.opportunitiesSeen, bestNetPct: t.stats.bestNetPct,
@@ -128,74 +165,17 @@ async function main(): Promise<void> {
     return out;
   };
 
+  function onTick(rt: Runtime, state: TickResult, books: OrderBook[]): void {
+    const stats = rt.engine.getStats();
+    const trades = rt.engine.getTrades().slice(-14).reverse();
 
-  const source = await buildSource(mode, trading, eventDriven ? Math.min(tickIntervalMs, 120) : tickIntervalMs);
-  await source.start();
-
-  // Optional triangular arbitrage (within one exchange), enabled with TRIANGULAR=1.
-  let triEngine: TriangularEngine | null = null;
-  let triFeed: TriFeed | null = null;
-  if (process.env.TRIANGULAR === '1') {
-    const triExchange = process.env.TRI_EXCHANGE ?? 'binance';
-    const triFee = Number(process.env.TRI_TAKER ?? EXCHANGE_FEES[triExchange]?.taker ?? 0.001);
-    const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
-    triEngine = new TriangularEngine({
-      exchange: triExchange, takerFee: triFee, notionalUSDT: triNotional,
-      minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
-    });
-    if (mode === 'live') {
-      const { CcxtTriFeed } = await import('../exchanges/tri-source');
-      triFeed = new CcxtTriFeed(triExchange, trading.pollIntervalMs, trading.orderBookDepth);
-    } else {
-      const { SimTriFeed } = await import('../exchanges/tri-source');
-      triFeed = new SimTriFeed(triExchange, 200);
-    }
-    await triFeed.start();
-    setInterval(() => { if (triFeed && triEngine) triEngine.tick(triFeed.getBooks()); }, mode === 'live' ? 250 : 200);
-    console.log(`[info] triangular arbitrage enabled on ${triExchange} (fee ${(triFee * 100).toFixed(3)}%)`);
-  }
-
-  const pnlHistory: { t: number; pnl: number; value: number }[] = [];
-  // Server-side per-exchange mid-price history. Lives here (not just in the
-  // browser) so the comparison chart's 15M/1H windows survive page reloads and
-  // server restarts, and so every reconnecting client sees the same history.
-  const priceSeries: Record<string, { t: number; mid: number }[]> = {};
-  const PRICE_SERIES_MAX = 3700; // ~1h at ~1 sample/sec per exchange
-  let latest: object | null = null;
-
-  // Restore P&L curve, cumulative stats and the price series from disk so the
-  // dashboard (and reconnecting clients) survive a server restart during a demo.
-  const restored = loadState();
-  if (restored && restored.pnlHistory.length) {
-    pnlHistory.push(...restored.pnlHistory.slice(-PNL_HISTORY_MAX));
-    console.log(`[persist] restored ${pnlHistory.length} P&L points from disk`);
-  }
-  if (restored && restored.stats) {
-    engine.restoreStats(restored.stats as Partial<ReturnType<typeof engine.getStats>>);
-    console.log('[persist] restored cumulative stats from disk');
-  }
-  if (restored && restored.priceSeries) {
-    for (const [ex, arr] of Object.entries(restored.priceSeries)) {
-      if (Array.isArray(arr)) priceSeries[ex] = arr.slice(-PRICE_SERIES_MAX);
-    }
-    const n = Object.values(priceSeries).reduce((a, b) => a + b.length, 0);
-    if (n) console.log(`[persist] restored ${n} price samples across ${Object.keys(priceSeries).length} exchanges`);
-  }
-
-  const onTick = (state: TickResult, books: OrderBook[]): void => {
-    const stats = engine.getStats();
-    const trades = engine.getTrades().slice(-14).reverse();
-
-    // Append each venue's current mid to the server-side price history (used by
-    // the comparison chart's 15M/1H windows). Throttled to ~1 sample/sec/venue
-    // so an hour of data stays bounded.
     const nowMs = state.timestamp;
     for (const b of books) {
       const bid = b.bids[0]?.price;
       const ask = b.asks[0]?.price;
       const mid = bid !== undefined && ask !== undefined ? (bid + ask) / 2 : (ask ?? bid);
       if (mid === undefined || !Number.isFinite(mid)) continue;
-      const arr = (priceSeries[b.exchange] = priceSeries[b.exchange] || []);
+      const arr = (rt.priceSeries[b.exchange] = rt.priceSeries[b.exchange] || []);
       const last = arr[arr.length - 1];
       if (!last || nowMs - last.t >= 1000) {
         arr.push({ t: nowMs, mid });
@@ -203,15 +183,20 @@ async function main(): Promise<void> {
       }
     }
 
-    latest = {
+    rt.latest = {
       ts: state.timestamp,
-      mode,
+      mode: rt.sourceName,
+      dataMode: rt.mode,
+      dataModeLabel: DATA_MODE_LABEL[rt.mode],
+      isSimulation: rt.mode === 'sim',
+      sourceStatus: SOURCE_STATUS[rt.mode],
+      sourceError: rt.sourceError,
       symbol: trading.symbol,
       exchanges: trading.exchanges,
-      activeExchanges: engine.getActiveExchanges(),
-      riskAppetite: engine.getRiskAppetite(),
+      activeExchanges: rt.engine.getActiveExchanges(),
+      riskAppetite: rt.engine.getRiskAppetite(),
       bookAgeMs: state.bookAgeMs,
-      avgLatencyMs: engine.avgLatencyMs(),
+      avgLatencyMs: rt.engine.avgLatencyMs(),
       latency: state.latency,
       markPrice: state.snapshot.markPrice,
       books: books.map((b) => bookView(b)),
@@ -228,53 +213,143 @@ async function main(): Promise<void> {
         partial: t.partial,
       })),
       stats,
-      paused: engine.isPaused(),
+      paused: rt.engine.isPaused(),
       risk: state.risk,
       portfolio: {
         totalValueQuote: state.snapshot.totalValueQuote,
         totalBase: state.snapshot.totalBase,
         totalQuote: state.snapshot.totalQuote,
       },
-      wallets: wallets.allWallets(),
-      pnlHistory,
-      triangular: triEngine ? triEngine.getState() : { enabled: false },
+      wallets: rt.wallets.allWallets(),
+      pnlHistory: rt.pnlHistory,
+      triangular: rt.triEngine ? rt.triEngine.getState() : { enabled: false },
       strategy: {
         mode: strategyMode,
         effective: effectiveStrategy,
-        available: triEngine ? ['cross', 'triangular'] : ['cross'],
+        available: rt.triEngine ? ['cross', 'triangular'] : ['cross'],
         recommendation: recommend(strategyStats()),
         events: strategyEvents.slice(-8).reverse(),
       },
     };
-  };
-
-  // Drive the engine.
-  if (eventDriven && source.onUpdate) {
-    source.onUpdate(() => {
-      const books = source.getBooks();
-      if (books.length < 2) return; // arbitrage needs ≥2 venues; trade whatever is live
-      onTick(engine.tick(books), books);
-    });
-  } else {
-    let lastSig = '';
-    setInterval(() => {
-      let books: OrderBook[];
-      if (source.advance) {
-        source.advance();
-        books = source.getBooks();
-      } else {
-        books = source.getBooks();
-        const sig = books.map((b) => `${b.exchange}:${b.timestamp}`).join('|');
-        if (sig === lastSig || books.length === 0) return;
-        lastSig = sig;
-      }
-      onTick(engine.tick(books), books);
-    }, tickIntervalMs);
   }
 
-  // Auto-switch: in 'auto' mode the advisor may change the active strategy when
-  // another is clearly outperforming (with cooldown + margin to avoid flapping).
-  // Each switch is recorded as an event the dashboard shows as an alert.
+  const makeRuntime = async (mode: DataMode): Promise<Runtime> => {
+    const sourceName: 'live' | 'sim-stream' = mode === 'live' ? 'live' : 'sim-stream';
+    const eventDriven = true;
+    const wallets = new WalletManager(buildBalances(trading.exchanges));
+    const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
+    engine.setActiveExchanges(prefs.activeExchanges);
+    engine.setRiskAppetite(prefs.riskAppetite);
+
+    const rt: Runtime = {
+      mode,
+      sourceName,
+      eventDriven,
+      source: null,
+      sourceError: null,
+      wallets,
+      engine,
+      pnlHistory: [],
+      priceSeries: {},
+      latest: null,
+      triEngine: null,
+      triFeed: null,
+      triTimer: null,
+    };
+
+    try {
+      rt.source = await buildSource(sourceName, trading, Math.min(tickIntervalMs, 120));
+      rt.source.onUpdate?.(() => {
+        if (!rt.source) return;
+        const books = rt.source.getBooks();
+        if (books.length < 2) return; // arbitrage needs ≥2 venues; trade whatever is live
+        onTick(rt, rt.engine.tick(books), books);
+      });
+      console.log(`[engine] ${mode} data source prepared (${rt.source.name})`);
+    } catch (err) {
+      rt.sourceError = err instanceof Error ? err.message : String(err);
+      console.error(`[engine] ${mode} source failed: ${rt.sourceError}`);
+    }
+
+    if (process.env.TRIANGULAR === '1') {
+      try {
+        const triExchange = process.env.TRI_EXCHANGE ?? 'binance';
+        const triFee = Number(process.env.TRI_TAKER ?? EXCHANGE_FEES[triExchange]?.taker ?? 0.001);
+        const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
+        rt.triEngine = new TriangularEngine({
+          exchange: triExchange, takerFee: triFee, notionalUSDT: triNotional,
+          minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
+        });
+        if (mode === 'live') {
+          const { CcxtTriFeed } = await import('../exchanges/tri-source');
+          rt.triFeed = new CcxtTriFeed(triExchange, trading.pollIntervalMs, trading.orderBookDepth);
+        } else {
+          const { SimTriFeed } = await import('../exchanges/tri-source');
+          rt.triFeed = new SimTriFeed(triExchange, 200);
+        }
+        await rt.triFeed.start();
+        rt.triTimer = setInterval(() => { if (rt.triFeed && rt.triEngine) rt.triEngine.tick(rt.triFeed.getBooks()); }, mode === 'live' ? 250 : 200);
+        console.log(`[info] triangular arbitrage enabled on ${triExchange} for ${mode} (fee ${(triFee * 100).toFixed(3)}%)`);
+      } catch (err) {
+        console.error(`[engine] ${mode} triangular feed failed: ${(err as Error).message}`);
+      }
+    }
+
+    const restored = loadState(mode);
+    restoreRuntime(rt, restored);
+    return rt;
+  };
+
+  runtimes = {
+    live: await makeRuntime('live'),
+    sim: await makeRuntime('sim'),
+  };
+
+  for (const rt of Object.values(runtimes)) {
+    if (!rt.source) continue;
+    await rt.source.start();
+    console.log(`[engine] ${rt.mode} data source started (${rt.source.name})`);
+  }
+
+  function restoreRuntime(rt: Runtime, restored: PersistedState | null): void {
+    if (restored && restored.pnlHistory.length) {
+      rt.pnlHistory.push(...restored.pnlHistory.slice(-PNL_HISTORY_MAX));
+      console.log(`[persist] restored ${rt.mode} ${rt.pnlHistory.length} P&L points from disk`);
+    }
+    if (restored && restored.stats) {
+      rt.engine.restoreStats(restored.stats as Partial<ReturnType<typeof rt.engine.getStats>>);
+      console.log(`[persist] restored ${rt.mode} cumulative stats from disk`);
+    }
+    if (restored && restored.priceSeries) {
+      for (const [ex, arr] of Object.entries(restored.priceSeries)) {
+        if (Array.isArray(arr)) rt.priceSeries[ex] = arr.slice(-PRICE_SERIES_MAX);
+      }
+      const n = Object.values(rt.priceSeries).reduce((a, b) => a + b.length, 0);
+      if (n) console.log(`[persist] restored ${rt.mode} ${n} price samples across ${Object.keys(rt.priceSeries).length} exchanges`);
+    }
+  }
+
+  // Non event-driven fallback for any source without onUpdate.
+  for (const rt of Object.values(runtimes)) {
+    if (rt.source && (!rt.eventDriven || !rt.source.onUpdate)) {
+      let lastSig = '';
+      setInterval(() => {
+        if (!rt.source) return;
+        let books: OrderBook[];
+        if (rt.source.advance) {
+          rt.source.advance();
+          books = rt.source.getBooks();
+        } else {
+          books = rt.source.getBooks();
+          const sig = books.map((b) => `${b.exchange}:${b.timestamp}`).join('|');
+          if (sig === lastSig || books.length === 0) return;
+          lastSig = sig;
+        }
+        if (books.length >= 2) onTick(rt, rt.engine.tick(books), books);
+      }, tickIntervalMs);
+    }
+  }
+
   setInterval(() => {
     if (strategyMode !== 'auto') return;
     const now = Date.now();
@@ -289,29 +364,83 @@ async function main(): Promise<void> {
     }
   }, 2000);
 
-  // Sample P&L history on a steady clock (decoupled from tick rate).
+  // Sample P&L history per mode on a steady clock. Separate persistence prevents
+  // live and simulated metrics from mixing across mode changes or restarts.
   setInterval(() => {
-    const s = engine.getStats();
-    const mark = (latest as { markPrice?: number } | null)?.markPrice ?? 0;
-    pnlHistory.push({ t: Date.now(), pnl: s.realizedPnl, value: wallets.snapshot(mark).totalValueQuote });
-    if (pnlHistory.length > PNL_HISTORY_MAX) pnlHistory.shift();
-    // Debounced, throttled disk write — keeps persistence off the hot path.
-    saveState({
-      savedAt: Date.now(),
-      pnlHistory,
-      priceSeries,
-      trades: engine.getTrades().slice(-50),
-      stats: s,
-    });
+    for (const rt of Object.values(runtimes)) {
+      const s = rt.engine.getStats();
+      const mark = (rt.latest as { markPrice?: number } | null)?.markPrice ?? 0;
+      rt.pnlHistory.push({ t: Date.now(), pnl: s.realizedPnl, value: rt.wallets.snapshot(mark).totalValueQuote });
+      if (rt.pnlHistory.length > PNL_HISTORY_MAX) rt.pnlHistory.shift();
+      saveState({
+        savedAt: Date.now(),
+        pnlHistory: rt.pnlHistory,
+        priceSeries: rt.priceSeries,
+        trades: rt.engine.getTrades().slice(-50),
+        stats: s,
+      }, rt.mode);
+    }
   }, 1000);
 
-  // SSE clients.
+  const stateForRuntime = (rt: Runtime): object => rt.latest ?? {
+    ts: Date.now(),
+    mode: rt.sourceName,
+    dataMode: rt.mode,
+    dataModeLabel: DATA_MODE_LABEL[rt.mode],
+    isSimulation: rt.mode === 'sim',
+    sourceStatus: SOURCE_STATUS[rt.mode],
+    sourceError: rt.sourceError,
+    symbol: trading.symbol,
+    exchanges: trading.exchanges,
+    activeExchanges: rt.engine.getActiveExchanges(),
+    riskAppetite: rt.engine.getRiskAppetite(),
+    bookAgeMs: 0,
+    avgLatencyMs: rt.engine.avgLatencyMs(),
+    latency: { volatilityPctPerSec: 0, volatilityLive: false, ghostsRejected: 0, executionLatencyMs: trading.executionLatencyMs },
+    markPrice: 0,
+    books: [],
+    opportunities: [],
+    trades: [],
+    stats: rt.engine.getStats(),
+    paused: rt.engine.isPaused(),
+    risk: { breakerActive: false },
+    portfolio: rt.wallets.snapshot(0),
+    wallets: rt.wallets.allWallets(),
+    pnlHistory: rt.pnlHistory,
+    triangular: rt.triEngine ? rt.triEngine.getState() : { enabled: false },
+    strategy: {
+      mode: strategyMode,
+      effective: effectiveStrategy,
+      available: rt.triEngine ? ['cross', 'triangular'] : ['cross'],
+      recommendation: recommend(strategyStats()),
+      events: strategyEvents.slice(-8).reverse(),
+    },
+  };
+
   const clients = new Set<http.ServerResponse>();
   setInterval(() => {
-    if (!latest) return;
-    const frame = `data: ${JSON.stringify(latest)}\n\n`;
+    const frame = `data: ${JSON.stringify(stateForRuntime(activeRuntime()))}\n\n`;
     for (const res of clients) res.write(frame);
   }, 100);
+
+  const sendJson = (res: http.ServerResponse, code: number, body: unknown): void => {
+    res.writeHead(code, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(body));
+  };
+  const settingsPayload = (): object => ({
+    dataMode,
+    dataModeLabel: DATA_MODE_LABEL[dataMode],
+    isSimulation: dataMode === 'sim',
+    sourceStatus: SOURCE_STATUS[dataMode],
+  });
+  const setDataMode = (next: DataMode): void => {
+    if (next === dataMode) return;
+    dataMode = next;
+    prefs.dataMode = next;
+    savePrefs(prefs, true);
+    console.log(`[settings] dataMode changed to ${next}`);
+    console.log(`[engine] using ${next === 'live' ? 'live source' : 'simulation source'}`);
+  };
 
   const indexHtml = path.join(__dirname, 'public', 'index.html');
 
@@ -328,7 +457,6 @@ async function main(): Promise<void> {
         }
       });
     } else if (url.endsWith('.png')) {
-      // Serve static PNG assets (logo, mark) from the public dir.
       const file = path.join(__dirname, 'public', path.basename(url));
       fs.readFile(file, (err, data) => {
         if (err) { res.writeHead(404); res.end('not found'); }
@@ -341,33 +469,47 @@ async function main(): Promise<void> {
         Connection: 'keep-alive',
       });
       res.write('retry: 2000\n\n');
-      if (latest) res.write(`data: ${JSON.stringify(latest)}\n\n`);
+      res.write(`data: ${JSON.stringify(stateForRuntime(activeRuntime()))}\n\n`);
       clients.add(res);
       req.on('close', () => clients.delete(res));
+    } else if (url === '/api/settings' && req.method === 'GET') {
+      sendJson(res, 200, settingsPayload());
+    } else if (url === '/api/settings/data-mode' && req.method === 'POST') {
+      void readJsonBody(req).then((body) => {
+        const next = (body as { dataMode?: unknown }).dataMode;
+        if (!isDataMode(next)) {
+          sendJson(res, 400, { error: 'dataMode must be "live" or "sim"' });
+          return;
+        }
+        setDataMode(next);
+        sendJson(res, 200, settingsPayload());
+      }).catch((err) => sendJson(res, 400, { error: (err as Error).message || 'invalid json' }));
     } else if (url === '/control') {
       const q = (req.url ?? '').split('?')[1] ?? '';
       const params = new URLSearchParams(q);
       const cmd = params.get('cmd');
-      if (cmd === 'pause') engine.setPaused(true);
-      else if (cmd === 'resume') engine.setPaused(false);
-      else if (cmd === 'toggle') engine.setPaused(!engine.isPaused());
+      const rt = activeRuntime();
+      if (cmd === 'pause') rt.engine.setPaused(true);
+      else if (cmd === 'resume') rt.engine.setPaused(false);
+      else if (cmd === 'toggle') rt.engine.setPaused(!rt.engine.isPaused());
       else if (cmd === 'exchanges') {
         const valRaw = params.get('value') ?? '';
         if (valRaw === '__none__') {
-          engine.setActiveExchanges([]); // explicit: disable all -> engine sees no venues
+          for (const r of Object.values(runtimes)) r.engine.setActiveExchanges([]);
         } else {
           const raw = valRaw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-          engine.setActiveExchanges(raw.length ? raw : null); // empty/all -> clear filter
+          for (const r of Object.values(runtimes)) r.engine.setActiveExchanges(raw.length ? raw : null);
         }
-        prefs.activeExchanges = engine.getActiveExchanges();
+        prefs.activeExchanges = rt.engine.getActiveExchanges();
         savePrefs(prefs);
       } else if (cmd === 'risk') {
-        engine.setRiskAppetite(Number(params.get('value')));
-        prefs.riskAppetite = engine.getRiskAppetite();
+        const v = Number(params.get('value'));
+        for (const r of Object.values(runtimes)) r.engine.setRiskAppetite(v);
+        prefs.riskAppetite = rt.engine.getRiskAppetite();
         savePrefs(prefs);
       } else if (cmd === 'strategy') {
         const v = (params.get('value') ?? '').toLowerCase();
-        const allowed = triEngine ? ['cross', 'triangular', 'auto'] : ['cross', 'auto'];
+        const allowed = rt.triEngine ? ['cross', 'triangular', 'auto'] : ['cross', 'auto'];
         if (allowed.includes(v)) {
           const from = effectiveStrategy;
           strategyMode = v;
@@ -380,22 +522,17 @@ async function main(): Promise<void> {
           savePrefs(prefs);
         }
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        paused: engine.isPaused(),
-        activeExchanges: engine.getActiveExchanges(),
-        riskAppetite: engine.getRiskAppetite(),
+      sendJson(res, 200, {
+        paused: rt.engine.isPaused(),
+        activeExchanges: rt.engine.getActiveExchanges(),
+        riskAppetite: rt.engine.getRiskAppetite(),
         strategy: strategyMode,
-      }));
+        ...settingsPayload(),
+      });
     } else if (url === '/prices') {
-      // Per-exchange mid-price history for the comparison chart. Fetched once on
-      // boot so the 15M/1H windows are populated immediately (and survive
-      // reloads), instead of starting empty and filling only going forward.
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(priceSeries));
+      sendJson(res, 200, activeRuntime().priceSeries);
     } else if (url === '/state') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(latest ?? {}));
+      sendJson(res, 200, stateForRuntime(activeRuntime()));
     } else {
       res.writeHead(404);
       res.end('not found');
@@ -403,12 +540,18 @@ async function main(): Promise<void> {
   });
 
   server.listen(PORT, () => {
-    console.log(`Arbitrage dashboard on http://localhost:${PORT}  (mode: ${mode})`);
+    console.log(`Arbitrage dashboard on http://localhost:${PORT}  (dataMode: ${dataMode})`);
   });
 
+  const flushAll = (): void => {
+    for (const rt of Object.values(runtimes)) {
+      flushState({ savedAt: Date.now(), pnlHistory: rt.pnlHistory, priceSeries: rt.priceSeries, trades: rt.engine.getTrades().slice(-50), stats: rt.engine.getStats() }, rt.mode);
+    }
+  };
+
   process.on('SIGINT', () => {
-    flushState({ savedAt: Date.now(), pnlHistory, priceSeries, trades: engine.getTrades().slice(-50), stats: engine.getStats() });
-    void source.stop().then(() => process.exit(0));
+    flushAll();
+    void Promise.all(Object.values(runtimes).map((rt) => rt.source?.stop() ?? Promise.resolve()).concat(Object.values(runtimes).map((rt) => rt.triFeed?.stop() ?? Promise.resolve()))).then(() => process.exit(0));
   });
 }
 

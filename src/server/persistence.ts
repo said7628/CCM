@@ -27,12 +27,16 @@ export interface PersistedState {
 }
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), 'data');
-const FILE = path.join(DATA_DIR, 'arbicore-state.json');
+function stateFile(mode = 'live'): string {
+  return mode === 'legacy' ? path.join(DATA_DIR, 'arbicore-state.json') : path.join(DATA_DIR, `arbicore-state-${mode}.json`);
+}
 
 /** Load persisted state on boot. Returns null if nothing valid is on disk. */
-export function loadState(): PersistedState | null {
+export function loadState(mode = 'live'): PersistedState | null {
   try {
-    const raw = fs.readFileSync(FILE, 'utf8');
+    const file = stateFile(mode);
+    const fallback = mode === 'live' && !fs.existsSync(file) ? stateFile('legacy') : file;
+    const raw = fs.readFileSync(fallback, 'utf8');
     const parsed = JSON.parse(raw) as PersistedState;
     if (!parsed || !Array.isArray(parsed.pnlHistory)) return null;
     return parsed;
@@ -41,34 +45,36 @@ export function loadState(): PersistedState | null {
   }
 }
 
-let pending: NodeJS.Timeout | null = null;
-let lastWrite = 0;
+const pending: Record<string, NodeJS.Timeout | null> = {};
+const lastWrite: Record<string, number> = {};
 const MIN_INTERVAL_MS = 4000;
 
 /** Debounced atomic save. Safe to call on every tick; disk writes are throttled. */
-export function saveState(state: PersistedState): void {
-  if (pending) return; // already scheduled
-  const wait = Math.max(0, MIN_INTERVAL_MS - (Date.now() - lastWrite));
-  pending = setTimeout(() => {
-    pending = null;
-    lastWrite = Date.now();
+export function saveState(state: PersistedState, mode = 'live'): void {
+  if (pending[mode]) return; // already scheduled for this mode
+  const wait = Math.max(0, MIN_INTERVAL_MS - (Date.now() - (lastWrite[mode] ?? 0)));
+  pending[mode] = setTimeout(() => {
+    pending[mode] = null;
+    lastWrite[mode] = Date.now();
     try {
       fs.mkdirSync(DATA_DIR, { recursive: true });
-      const tmp = FILE + '.tmp';
+      const file = stateFile(mode);
+      const tmp = file + '.tmp';
       fs.writeFileSync(tmp, JSON.stringify(state));
-      fs.renameSync(tmp, FILE); // atomic on same filesystem
+      fs.renameSync(tmp, file); // atomic on same filesystem
     } catch (err) {
       console.error('[persist] write failed:', (err as Error).message);
     }
   }, wait);
-  if (typeof pending.unref === 'function') pending.unref();
+  const timer = pending[mode];
+  if (timer && typeof timer.unref === 'function') timer.unref();
 }
 
 /** Flush immediately (e.g. on SIGINT) so the last few seconds aren't lost. */
-export function flushState(state: PersistedState): void {
+export function flushState(state: PersistedState, mode = 'live'): void {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(state));
+    fs.writeFileSync(stateFile(mode), JSON.stringify(state));
   } catch {
     /* best-effort */
   }
