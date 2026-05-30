@@ -79,8 +79,8 @@ export class ArbitrageEngine {
   };
   private readonly maxHistory = 500;
   private lastExecAt = 0;
-  private latencySum = 0;
-  private latencySamples = 0;
+  private latencyWindow: number[] = [];
+  private readonly latencyWindowMax = 200;
   private paused = false;
 
   constructor(
@@ -99,8 +99,8 @@ export class ArbitrageEngine {
 
     const freshest = books.reduce((m, b) => Math.max(m, b.timestamp), 0);
     const bookAgeMs = freshest > 0 ? now - freshest : 0;
-    this.latencySum += bookAgeMs;
-    this.latencySamples += 1;
+    this.latencyWindow.push(bookAgeMs);
+    if (this.latencyWindow.length > this.latencyWindowMax) this.latencyWindow.shift();
 
     const markPrice = computeMark(books);
 
@@ -176,7 +176,10 @@ export class ArbitrageEngine {
 
   /** Average data latency (book age at decision) across all ticks, in ms. */
   avgLatencyMs(): number {
-    return this.latencySamples > 0 ? this.latencySum / this.latencySamples : 0;
+    if (this.latencyWindow.length === 0) return 0;
+    let sum = 0;
+    for (const v of this.latencyWindow) sum += v;
+    return sum / this.latencyWindow.length;
   }
 
   /** Pause/resume trade execution (detection and streaming continue). */

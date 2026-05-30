@@ -21,7 +21,7 @@ export class CompositeSource extends EventEmitter implements MarketDataSource {
 
   constructor(
     private parts: MarketDataSource[],
-    private restPollMs = 300,
+    private restPollMs = 100,
   ) {
     super();
   }

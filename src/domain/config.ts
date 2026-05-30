@@ -114,7 +114,7 @@ export const DEFAULT_TRADING: TradingConfig = {
   slippageBufferPct: 0.0002, // 0.02% safety buffer for execution latency
   latencyPenaltyPct: 0.0001, // 0.01% estimated cost of stale-data latency
   maxQuoteAgeMs: 2000,
-  pollIntervalMs: 1000,
+  pollIntervalMs: 250,
   orderBookDepth: 20,
   executionCooldownMs: 250,
 };

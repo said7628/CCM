@@ -187,7 +187,7 @@ async function main(): Promise<void> {
     const mark = (latest as { markPrice?: number } | null)?.markPrice ?? 0;
     pnlHistory.push({ t: Date.now(), pnl: s.realizedPnl, value: wallets.snapshot(mark).totalValueQuote });
     if (pnlHistory.length > PNL_HISTORY_MAX) pnlHistory.shift();
-  }, 1000);
+  }, 500);
 
   // SSE clients.
   const clients = new Set<http.ServerResponse>();
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
     if (!latest) return;
     const frame = `data: ${JSON.stringify(latest)}\n\n`;
     for (const res of clients) res.write(frame);
-  }, 100);
+  }, 50);
 
 
   const server = http.createServer((req, res) => {
