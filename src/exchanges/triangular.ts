@@ -81,7 +81,9 @@ export interface TriParams {
   minNetPct: number;
 }
 
-type TriStatus =
+export type TriStatus =
+  | 'Cargando'
+  | 'Listo'
   | 'Ejecutable'
   | 'En espera'
   | 'Sin pares suficientes'
@@ -89,7 +91,8 @@ type TriStatus =
   | 'Endpoint bloqueado'
   | 'Par no disponible'
   | 'Sin order book todavía'
-  | 'Esperando WebSocket';
+  | 'WebSocket pendiente'
+  | 'Sin liquidez';
 
 interface ConversionResult {
   out: number;
@@ -153,8 +156,8 @@ function feeToUSDT(pair: string, feePaidInput: number, books: Record<string, Ord
 }
 
 function candidateStatus(o: TriangularOpportunity): TriStatus {
-  if (!o.legs.every((l) => l.fullyFilled !== false)) return 'Sin profundidad suficiente';
-  return o.executable ? 'Ejecutable' : 'En espera';
+  if (!o.legs.every((l) => l.fullyFilled !== false)) return 'Sin liquidez';
+  return o.executable ? 'Ejecutable' : 'Listo';
 }
 
 
@@ -288,7 +291,9 @@ function statusFromPairStatuses(missingPairs: string[], pairStatuses?: Record<st
   if (text.includes('par no disponible') || text.includes('symbol') || text.includes('market')) {
     return { status: 'Par no disponible', reasons };
   }
-  if (text.includes('esperando websocket')) return { status: 'Esperando WebSocket', reasons };
+  if (text.includes('cargando')) return { status: 'Cargando', reasons };
+  if (text.includes('websocket pendiente') || text.includes('esperando websocket')) return { status: 'WebSocket pendiente', reasons };
+  if (text.includes('sin liquidez')) return { status: 'Sin liquidez', reasons };
   if (text.includes('sin order book')) return { status: 'Sin order book todavía', reasons };
   return { status: 'Sin pares suficientes', reasons };
 }
@@ -344,7 +349,7 @@ export function detectTriangularMulti(
   perCoin.sort((x, y) => y.netProfit - x.netProfit);
   candidates.sort((x, y) => {
     if (x.status !== y.status) {
-      const low = new Set<TriStatus>(['Sin pares suficientes', 'Endpoint bloqueado', 'Par no disponible', 'Sin order book todavía', 'Esperando WebSocket']);
+      const low = new Set<TriStatus>(['Sin pares suficientes', 'Endpoint bloqueado', 'Par no disponible', 'Sin order book todavía', 'WebSocket pendiente', 'Cargando', 'Sin liquidez']);
       if (low.has(x.status)) return 1;
       if (low.has(y.status)) return -1;
     }

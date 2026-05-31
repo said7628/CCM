@@ -91,18 +91,22 @@ function oppView(o: Opportunity): object {
 
 async function main(): Promise<void> {
   const { trading, risk } = loadConfig();
-  const mode = process.env.SOURCE ?? 'sim';
-  const eventDriven = mode === 'live' || mode === 'sim-stream';
+  let dataMode: 'live' | 'sim' = ((process.env.SOURCE ?? '').startsWith('live') ? 'live' : 'sim');
   const tickIntervalMs = Number(process.env.INTERVAL_MS ?? 250);
 
-  const wallets = new WalletManager(buildBalances(trading.exchanges));
-  const engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
+  let wallets = new WalletManager(buildBalances(trading.exchanges));
+  let engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
 
   // Restore engine preferences (active exchanges, risk appetite) from disk so the
   // user's choices survive restarts and are shared across browsers/devices.
   const prefs: EnginePrefs = loadPrefs();
-  engine.setActiveExchanges(prefs.activeExchanges);
-  engine.setRiskAppetite(prefs.riskAppetite);
+  // Explicit SOURCE env wins on boot; otherwise use persisted UI preference.
+  dataMode = process.env.SOURCE ? dataMode : (prefs.dataMode ?? dataMode);
+  function applyPrefsToEngine(): void {
+    engine.setActiveExchanges(prefs.activeExchanges);
+    engine.setRiskAppetite(prefs.riskAppetite);
+  }
+  applyPrefsToEngine();
 
   // --- Strategy advisor state ---
   // Only two manual modes are exposed: Cross-Exchange and Triangular.
@@ -128,8 +132,7 @@ async function main(): Promise<void> {
   };
 
 
-  const source = await buildSource(mode, trading, eventDriven ? Math.min(tickIntervalMs, 120) : tickIntervalMs);
-  await source.start();
+  let source: MarketDataSource | null = null;
 
   // Triangular arbitrage (within ONE exchange). Always instantiated so the
   // dashboard can drive it; it only consumes CPU on its own small feed and
@@ -155,6 +158,33 @@ async function main(): Promise<void> {
 
   const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
 
+  const pnlHistory: { t: number; pnl: number; value: number }[] = [];
+  let latest: object | null = null;
+  let switchingSource = false;
+  let triSync = { rebuilding: false, startedAt: Date.now(), exchange: triExchange };
+
+  function initialTriStatuses(): Record<string, string> {
+    const { pairsForCoins } = require('../exchanges/tri-source') as typeof import('../exchanges/tri-source');
+    const statuses: Record<string, string> = {};
+    for (const pair of pairsForCoins(triCoins)) statuses[pair] = 'Cargando';
+    return statuses;
+  }
+
+  function resetRuntimeStats(): void {
+    wallets = new WalletManager(buildBalances(trading.exchanges));
+    engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });
+    applyPrefsToEngine();
+    pnlHistory.length = 0;
+    latest = null;
+  }
+
+  async function startMarketSource(): Promise<void> {
+    if (source) { try { await source.stop(); } catch { /* ignore */ } }
+    source = await buildSource(dataMode, trading, Math.min(tickIntervalMs, dataMode === 'live' ? 120 : tickIntervalMs));
+    await source.start();
+    console.log(`[info] data source active: ${dataMode.toUpperCase()}`);
+  }
+
   function triTakerFor(ex: string): number {
     return Number(process.env.TRI_TAKER ?? EXCHANGE_FEES[ex]?.taker ?? 0.001);
   }
@@ -163,6 +193,7 @@ async function main(): Promise<void> {
   // and whenever the user picks a different triangular exchange. Coin changes are
   // applied in place (no rebuild) so LIVE polling adjusts pairs without a stall.
   async function rebuildTriFeed(): Promise<void> {
+    triSync = { rebuilding: true, startedAt: Date.now(), exchange: triExchange };
     if (triFeed) { try { await triFeed.stop(); } catch { /* ignore */ } triFeed = null; }
     const triFee = triTakerFor(triExchange);
     triEngine = new TriangularEngine({
@@ -170,28 +201,31 @@ async function main(): Promise<void> {
       minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
       coins: triCoins,
     });
-    if (mode === 'live') {
-      const { NativeWsTriFeed } = await import('../exchanges/tri-source');
-      triFeed = new NativeWsTriFeed(triExchange, triCoins, trading.orderBookDepth);
-    } else if (mode === 'live-rest') {
-      const { CcxtTriFeed } = await import('../exchanges/tri-source');
-      triFeed = new CcxtTriFeed(triExchange, triCoins, trading.pollIntervalMs, trading.orderBookDepth);
-    } else {
-      const { SimTriFeed } = await import('../exchanges/tri-source');
-      triFeed = new SimTriFeed(triExchange, triCoins, 200);
+    // Immediately publish clean "Cargando" rows for the new exchange so stale
+    // routes from the previous venue are never displayed as current.
+    triEngine.tick({}, initialTriStatuses());
+    try {
+      if (dataMode === 'live') {
+        const { NativeWsTriFeed } = await import('../exchanges/tri-source');
+        triFeed = new NativeWsTriFeed(triExchange, triCoins, trading.orderBookDepth);
+      } else {
+        const { SimTriFeed } = await import('../exchanges/tri-source');
+        triFeed = new SimTriFeed(triExchange, triCoins, 200);
+      }
+      await triFeed.start();
+      console.log(`[info] triangular syncing on ${triExchange} (${dataMode.toUpperCase()}, fee ${(triFee * 100).toFixed(3)}%, coins ${triCoins.join(',')})`);
+    } finally {
+      triSync.rebuilding = false;
     }
-    await triFeed.start();
-    console.log(`[info] triangular ready on ${triExchange} (fee ${(triFee * 100).toFixed(3)}%, coins ${triCoins.join(',')})`);
   }
 
+  await startMarketSource();
   await rebuildTriFeed();
   // Drive the triangular engine off its own clock, independent of the cross feed.
   setInterval(() => {
     if (triFeed && triEngine) triEngine.tick(triFeed.getBooks(), triFeed.getPairStatuses?.());
-  }, mode === 'live' ? 250 : 200);
+  }, dataMode === 'live' ? 250 : 200);
 
-  const pnlHistory: { t: number; pnl: number; value: number }[] = [];
-  let latest: object | null = null;
 
   // Restore P&L curve from disk so the dashboard chart / backtesting view (and
   // reconnecting clients) survive a server restart during a demo.
@@ -201,12 +235,54 @@ async function main(): Promise<void> {
     console.log(`[persist] restored ${pnlHistory.length} P&L points from disk`);
   }
 
+  function triangularUiState(): object {
+    if (!triEngine) return { enabled: false };
+    const state = triEngine.getState();
+    const statuses = triFeed?.getPairStatuses?.() ?? initialTriStatuses();
+    const requiredPairs = triFeed?.getRequiredPairs?.() ?? Object.keys(statuses);
+    const readyPairs = requiredPairs.filter((p) => statuses[p] === 'Listo' || statuses[p] === 'OK').length;
+    const waitingPairs = requiredPairs.filter((p) => /Cargando|WebSocket pendiente|Esperando WebSocket|Sin order book/.test(statuses[p] ?? ''));
+    const unavailablePairs = requiredPairs.filter((p) => /Par no disponible/.test(statuses[p] ?? ''));
+    const blockedPairs = requiredPairs.filter((p) => /Endpoint bloqueado|blocked|restricted|451/i.test(statuses[p] ?? ''));
+    const expectedRoutes = triCoins.length;
+    const readyRoutes = state.candidates.filter((c) => c.status === 'Listo' || c.status === 'Ejecutable').length;
+    const elapsedMs = Date.now() - triSync.startedAt;
+    const loading = triSync.rebuilding || (readyPairs < requiredPairs.length && elapsedMs < Number(process.env.TRI_LOADING_GRACE_MS ?? 8000));
+    const slow = !loading && waitingPairs.length > 0;
+    const exchangeName = triExchange.charAt(0).toUpperCase() + triExchange.slice(1);
+    const sample = triCoins.slice(0, 1)[0] ?? 'COIN';
+    return {
+      ...state,
+      baseCoins: ['BTC', 'USDT'],
+      availableCoins: [...DEFAULT_TRI_COINS],
+      activeCoins: triEngine.getCoins(),
+      candidateExchanges: trading.exchanges,
+      pairStatuses: statuses,
+      sync: {
+        loading,
+        slow,
+        message: loading ? `Sincronizando order books de ${exchangeName}…` : (slow ? 'Algunos pares siguen esperando WebSocket' : `Order books sincronizados en ${exchangeName}`),
+        detail: `Cargando pares BTC/USDT, ${sample}/USDT y ${sample}/BTC…`,
+        readyPairs,
+        totalPairs: requiredPairs.length,
+        readyRoutes,
+        totalRoutes: expectedRoutes,
+        waitingWebSockets: waitingPairs.length,
+        unavailablePairs: unavailablePairs.length,
+        blockedPairs: blockedPairs.length,
+        elapsedMs,
+        requiredPairs,
+      },
+    };
+  }
+
   const onTick = (state: TickResult, books: OrderBook[]): void => {
     const stats = engine.getStats();
     const trades = engine.getTrades().slice(-14).reverse();
     latest = {
       ts: state.timestamp,
-      mode,
+      mode: dataMode,
+      dataMode,
       symbol: trading.symbol,
       exchanges: trading.exchanges,
       activeExchanges: engine.getActiveExchanges(),
@@ -238,17 +314,7 @@ async function main(): Promise<void> {
       },
       wallets: wallets.allWallets(),
       pnlHistory,
-      triangular: triEngine
-        ? {
-            ...triEngine.getState(),
-            // Config the dashboard needs to render the Triangular wallet panel:
-            baseCoins: ['BTC', 'USDT'],
-            availableCoins: [...DEFAULT_TRI_COINS],
-            activeCoins: triEngine.getCoins(),
-            // Venues the user may pick as the single triangular exchange.
-            candidateExchanges: trading.exchanges,
-          }
-        : { enabled: false },
+      triangular: triangularUiState(),
       strategy: {
         mode: strategyMode,
         effective: effectiveStrategy,
@@ -260,29 +326,24 @@ async function main(): Promise<void> {
     };
   };
 
-  // Drive the engine.
-  if (eventDriven && source.onUpdate) {
-    source.onUpdate(() => {
-      const books = source.getBooks();
-      if (books.length < 2) return; // arbitrage needs ≥2 venues; trade whatever is live
-      onTick(engine.tick(books), books);
-    });
-  } else {
-    let lastSig = '';
-    setInterval(() => {
-      let books: OrderBook[];
-      if (source.advance) {
-        source.advance();
-        books = source.getBooks();
-      } else {
-        books = source.getBooks();
-        const sig = books.map((b) => `${b.exchange}:${b.timestamp}`).join('|');
-        if (sig === lastSig || books.length === 0) return;
-        lastSig = sig;
-      }
-      onTick(engine.tick(books), books);
-    }, tickIntervalMs);
-  }
+  // Drive the engine from the currently selected source. The source object is
+  // mutable so /control?cmd=data-mode can swap LIVE ⇄ SIM without restarting.
+  let lastSig = '';
+  setInterval(() => {
+    if (!source || switchingSource) return;
+    let books: OrderBook[];
+    if (source.advance) {
+      source.advance();
+      books = source.getBooks();
+    } else {
+      books = source.getBooks();
+      const sig = books.map((b) => `${b.exchange}:${b.timestamp}`).join('|');
+      if (sig === lastSig || books.length === 0) return;
+      lastSig = sig;
+    }
+    if (books.length < 2) return;
+    onTick(engine.tick(books), books);
+  }, tickIntervalMs);
 
   // Sample P&L history on a steady clock (decoupled from tick rate).
   setInterval(() => {
@@ -372,6 +433,26 @@ async function main(): Promise<void> {
           prefs.strategy = strategyMode;
           savePrefs(prefs);
         }
+      } else if (cmd === 'data-mode') {
+        const v = (params.get('value') ?? '').toLowerCase();
+        if ((v === 'live' || v === 'sim') && v !== dataMode) {
+          switchingSource = true;
+          dataMode = v as 'live' | 'sim';
+          prefs.dataMode = dataMode;
+          savePrefs(prefs);
+          void (async () => {
+            try {
+              resetRuntimeStats();
+              await startMarketSource();
+              await rebuildTriFeed();
+              lastSig = '';
+            } catch (e) {
+              console.error('[data-mode] switch failed:', (e as Error).message);
+            } finally {
+              switchingSource = false;
+            }
+          })();
+        }
       } else if (cmd === 'tri-exchange') {
         // Triangular runs on exactly ONE venue. Switching rebuilds its feed.
         const v = (params.get('value') ?? '').trim().toLowerCase();
@@ -402,6 +483,7 @@ async function main(): Promise<void> {
         strategy: strategyMode,
         triExchange,
         triCoins,
+        dataMode,
       }));
     } else if (url === '/state') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -413,12 +495,12 @@ async function main(): Promise<void> {
   });
 
   server.listen(PORT, () => {
-    console.log(`Arbitrage dashboard on http://localhost:${PORT}  (mode: ${mode})`);
+    console.log(`Arbitrage dashboard on http://localhost:${PORT}  (mode: ${dataMode})`);
   });
 
   process.on('SIGINT', () => {
     flushState({ savedAt: Date.now(), pnlHistory, trades: engine.getTrades().slice(-50), stats: engine.getStats() });
-    void source.stop().then(() => process.exit(0));
+    void (source?.stop() ?? Promise.resolve()).then(() => process.exit(0));
   });
 }
 
