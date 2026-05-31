@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ ArbiCore — Bot de Arbitraje de Bitcoin en Tiempo Real
+# FlowChain — Bot de Arbitraje de Bitcoin en Tiempo Real
 
 **Detección, evaluación y ejecución simulada de oportunidades de arbitraje de BTC entre 9 exchanges, con feeds nativos por WebSocket, modelo de rentabilidad neta honesto, gestión de riesgo con circuit breaker y un dashboard web en vivo.**
 
@@ -10,39 +10,39 @@
 ![Exchanges](https://img.shields.io/badge/Exchanges-9-orange)
 ![License](https://img.shields.io/badge/Uso-Simulaci%C3%B3n%20educativa-lightgrey)
 
-🔗 **Demo en vivo:** `https://TU-URL-DESPLEGADA.com`  ·  📦 **Repo:** `https://github.com/TU-USUARIO/TU-REPO`
+**Demo en vivo:** [http://87.99.133.208:8080/](http://87.99.133.208:8080/)  ·  **Repositorio:** [github.com/said7628/CCM](https://github.com/said7628/CCM)
 
 </div>
 
 <!-- ════════════════════════════════════════════════════════════════════════
-  📸 FOTO 1 — Archivo: docs/screenshots/dashboard-overview.png
+  SCREENSHOT 1 — Archivo: docs/screenshots/dashboard-overview.png
   Qué debe mostrar: la vista principal (Dashboard) completa. Que se vean los
   KPIs de arriba (P&L Neto Realizado, Exchanges activos, Latencia media, Nivel
   de riesgo), el hero con el P&L grande y el chip "Mercado sincronizado en vivo".
   Es la foto estrella — ponla bonita y con datos (idealmente en modo SIM con P&L
   positivo acumulado).
 ═══════════════════════════════════════════════════════════════════════════ -->
-![Dashboard principal de ArbiCore](docs/screenshots/dashboard-overview.png)
+![Dashboard principal de FlowChain](docs/screenshots/dashboard-overview.png)
 
 ---
 
-## 📑 Tabla de contenidos
+## Tabla de contenidos
 
-- [Descripción](#-descripción)
-- [Características principales](#-características-principales)
-- [Stack tecnológico](#-stack-tecnológico)
-- [Cómo funciona](#-cómo-funciona-el-pipeline-de-decisión)
-- [Arquitectura](#-arquitectura)
-- [Instalación y uso](#-instalación-y-uso)
-- [Despliegue en producción](#-despliegue-en-producción-pm2)
-- [Variables de entorno](#-variables-de-entorno)
-- [Capturas de pantalla](#-capturas-de-pantalla)
-- [Roadmap](#-roadmap)
-- [Disclaimer](#-disclaimer)
+- [Descripción](#descripción)
+- [Características principales](#características-principales)
+- [Stack tecnológico](#stack-tecnológico)
+- [Cómo funciona](#cómo-funciona-el-pipeline-de-decisión)
+- [Arquitectura](#arquitectura)
+- [Instalación y uso](#instalación-y-uso)
+- [Despliegue en producción](#despliegue-en-producción-pm2)
+- [Variables de entorno](#variables-de-entorno)
+- [Capturas de pantalla](#capturas-de-pantalla)
+- [Roadmap](#roadmap)
+- [Disclaimer](#disclaimer)
 
 ---
 
-## 🎯 Descripción
+## Descripción
 
 Bitcoin se negocia simultáneamente en cientos de exchanges, cada uno con su propia
 liquidez y libro de órdenes. Como ningún mercado es perfectamente eficiente, los
@@ -51,7 +51,7 @@ divergencias de precio en cuestión de milisegundos. Cuando el precio de **compr
 (Ask)** de un exchange es menor que el precio de **venta (Bid)** de otro, existe
 una oportunidad de arbitraje.
 
-**ArbiCore** es un sistema de trading automático que:
+**FlowChain** es un sistema de trading automático que:
 
 1. **Monitorea en tiempo real** los order books de BTC/USDT en hasta **9 exchanges** mediante WebSockets nativos.
 2. **Detecta** las divergencias en el instante en que ocurren y las **prioriza por rentabilidad neta**.
@@ -62,34 +62,34 @@ una oportunidad de arbitraje.
 
 > La diferencia entre un bot promedio y uno excepcional no está solo en detectar
 > oportunidades, sino en **priorizarlas, evaluarlas con honestidad y gestionar el
-> riesgo** cuando el mercado se mueve en contra durante la ejecución. ArbiCore se
+> riesgo** cuando el mercado se mueve en contra durante la ejecución. FlowChain se
 > diseñó alrededor de esa idea.
 
 ---
 
-## ✨ Características principales
+## Características principales
 
-| | Característica | Detalle |
-|---|---|---|
-| ⚡ | **Feeds 100% WebSocket** | 9 exchanges (Binance, Kraken, OKX, Coinbase, Bitfinex, KuCoin, Gate.io, Bitstamp, Gemini) con conector nativo. Cero polling REST en el modo live. |
-| 🧠 | **Rentabilidad neta real** | No usa el spread bruto: recorre ambos libros *slice por slice* (VWAP) acumulando volumen **solo mientras cada porción marginal cubre las fees**. Resultado: el tamaño óptimo de la operación y un P&L honesto. |
-| 👻 | **Filtro de oportunidades fantasma** | Estima la volatilidad de BTC en vivo (EWMA) y rechaza edges que no sobrevivirían a la *ventana de exposición* (antigüedad de la pata más lenta + latencia de ejecución), escalando con √tiempo. |
-| 🛡️ | **Gestión de riesgo** | Circuit breaker por pérdidas consecutivas o drawdown máximo, con cooldown automático. Selector de **apetito de riesgo** (Conservador → Muy agresivo) que reajusta umbrales en caliente. |
-| 💰 | **Wallets + órdenes parciales** | Balances por exchange que se actualizan tras cada operación; si la liquidez o el balance no cubren el volumen, ejecuta un *fill parcial* balanceado. |
-| 🔺 | **Dos estrategias** | **Cross-Exchange** (comparar venues) y **Arbitraje Triangular** (rutas dentro de un mismo exchange, p. ej. BTC→ETH→USDT→BTC). |
-| 📊 | **Dashboard en vivo (SSE)** | Server-Sent Events sin dependencias extra: order books con barras de profundidad, feed de oportunidades (ejecutadas vs rechazadas con su razón), log de ejecución, desglose de costos y gráfica de P&L. |
-| 🩺 | **Feeds observables** | Watchdog de frescura que **reconecta** automáticamente cualquier feed que se quede mudo, y badges honestos que muestran "Live" o "hace Xs" según la edad real del dato. |
-| 💾 | **Persistencia** | Preferencias (exchanges activos, apetito de riesgo, estrategia) e historial de P&L persisten en disco y se comparten entre navegadores/reinicios. |
-| 🔁 | **Arquitectura intercambiable** | El motor es **puro** (sin I/O): el mismo código corre contra el simulador determinista o contra los feeds reales sin tocar una línea. |
+| Característica | Detalle |
+|---|---|
+| **Feeds 100% WebSocket** | 9 exchanges (Binance, Kraken, OKX, Coinbase, Bitfinex, KuCoin, Gate.io, Bitstamp, Gemini) con conector nativo. Cero polling REST en el modo live. |
+| **Rentabilidad neta real** | No usa el spread bruto: recorre ambos libros *slice por slice* (VWAP) acumulando volumen **solo mientras cada porción marginal cubre las fees**. Resultado: el tamaño óptimo de la operación y un P&L honesto. |
+| **Filtro de oportunidades fantasma** | Estima la volatilidad de BTC en vivo (EWMA) y rechaza edges que no sobrevivirían a la *ventana de exposición* (antigüedad de la pata más lenta + latencia de ejecución), escalando con la raíz del tiempo. |
+| **Gestión de riesgo** | Circuit breaker por pérdidas consecutivas o drawdown máximo, con cooldown automático. Selector de **apetito de riesgo** (Conservador a Muy agresivo) que reajusta umbrales en caliente. |
+| **Wallets y órdenes parciales** | Balances por exchange que se actualizan tras cada operación; si la liquidez o el balance no cubren el volumen, ejecuta un *fill parcial* balanceado. |
+| **Dos estrategias** | **Cross-Exchange** (comparar venues) y **Arbitraje Triangular** (rutas dentro de un mismo exchange, p. ej. BTC a ETH a USDT a BTC). |
+| **Dashboard en vivo (SSE)** | Server-Sent Events sin dependencias extra: order books con barras de profundidad, feed de oportunidades (ejecutadas vs rechazadas con su razón), log de ejecución, desglose de costos y gráfica de P&L. |
+| **Feeds observables** | Watchdog de frescura que **reconecta** automáticamente cualquier feed que se quede mudo, y badges honestos que muestran "Live" o "hace Xs" según la edad real del dato. |
+| **Persistencia** | Preferencias (exchanges activos, apetito de riesgo, estrategia) e historial de P&L persisten en disco y se comparten entre navegadores y reinicios. |
+| **Arquitectura intercambiable** | El motor es **puro** (sin I/O): el mismo código corre contra el simulador determinista o contra los feeds reales sin tocar una línea. |
 
 ---
 
-## 🛠 Stack tecnológico
+## Stack tecnológico
 
 | Capa | Tecnología | Por qué |
 |------|------------|---------|
 | **Lenguaje** | TypeScript 5.6 (estricto) | Tipado del dominio financiero (OrderBook, Opportunity, Trade) que evita errores caros. |
-| **Runtime** | Node.js ≥ 20 | Un único proceso, event-loop ideal para I/O de WebSockets concurrentes. |
+| **Runtime** | Node.js >= 20 | Un único proceso, event-loop ideal para I/O de WebSockets concurrentes. |
 | **Servidor web** | `http` nativo + **Server-Sent Events** | Streaming en tiempo real **sin framework ni dependencias** de servidor. |
 | **Feeds en vivo** | [`ws`](https://github.com/websockets/ws) | 9 conectores WebSocket nativos con order book local incremental. |
 | **Fallback de datos** | [`ccxt`](https://github.com/ccxt/ccxt) | Polling REST opcional como último recurso (`SOURCE=live-rest`). |
@@ -101,26 +101,26 @@ una oportunidad de arbitraje.
 
 ---
 
-## 🔬 Cómo funciona (el pipeline de decisión)
+## Cómo funciona (el pipeline de decisión)
 
 Cada `tick()` es **un ciclo de decisión completo**:
 
 ```
- books (9 venues) ─► detector ─► profitability ─► risk gate ─► executor ─► wallets/P&L
-                       │             │               │            │
-                  rankea por    sizing óptimo    circuit      fills parciales
-                  net profit    + net honesto    breaker      balanceados
+ books (9 venues) --> detector --> profitability --> risk gate --> executor --> wallets/P&L
+                        |              |                |             |
+                   rankea por     sizing óptimo     circuit       fills parciales
+                   net profit     + net honesto     breaker       balanceados
 ```
 
 1. **Detección.** Se evalúan *todas* las parejas dirigidas (comprar en X, vender en Y) en ambos sentidos y se **rankean por ganancia neta** — no se toma la primera que aparece.
 2. **Rentabilidad neta.** Para cada pareja se recorren los libros acumulando volumen mientras cada porción marginal siga siendo positiva *después de fees*. Eso da el **tamaño que maximiza la ganancia** y un net P&L que incluye fees taker de cada exchange, slippage, costo de latencia y (opcional) costo de retiro.
-3. **Filtro de fantasmas (latency-risk).** El edge solo es real si sobrevive a la ventana de exposición. Se modela el movimiento adverso esperado (`z · volatilidad · √exposición`) y se rechaza lo que no sobreviva. Aparecen como `latency_risk` en el scanner.
+3. **Filtro de fantasmas (latency-risk).** El edge solo es real si sobrevive a la ventana de exposición. Se modela el movimiento adverso esperado (`z · volatilidad · raíz(exposición)`) y se rechaza lo que no sobreviva. Aparecen como `latency_risk` en el scanner.
 4. **Riesgo.** Si hay demasiadas pérdidas consecutivas o el drawdown supera el límite, el circuit breaker **detiene la operación** y entra en cooldown.
-5. **Ejecución simulada.** Se "compra" en el venue barato y se "vende" en el caro al mismo tamaño, recortado por la liquidez del libro **y** por lo que las wallets pueden fondear → *fill parcial* si hace falta.
+5. **Ejecución simulada.** Se "compra" en el venue barato y se "vende" en el caro al mismo tamaño, recortado por la liquidez del libro **y** por lo que las wallets pueden fondear, generando un *fill parcial* si hace falta.
 6. **Registro.** Se actualizan balances, P&L acumulado y el historial, y se emite un snapshot al dashboard por SSE.
 
 <!-- ════════════════════════════════════════════════════════════════════════
-  📸 FOTO 2 — Archivo: docs/screenshots/opportunities-scanner.png
+  SCREENSHOT 2 — Archivo: docs/screenshots/opportunities-scanner.png
   Qué debe mostrar: el feed de "Oportunidades detectadas". Importante que se vean
   TANTO oportunidades ejecutables (verdes, con ganancia neta) COMO rechazadas con
   su razón (ej. "Latency ghost", "negative_net", "below_threshold"). Eso demuestra
@@ -130,31 +130,31 @@ Cada `tick()` es **un ciclo de decisión completo**:
 
 ---
 
-## 🏗 Arquitectura
+## Arquitectura
 
 La decisión rectora es una **separación dura entre un motor puro y sus consumidores**.
 El motor no tiene I/O ni dependencias externas, así que es 100% testeable y se comporta
 igual lo conduzca la consola, la web, el simulador o los exchanges reales.
 
 ```
-            ┌─────────────────────────────────────────────┐
-            │                 MOTOR (puro)                 │
- books ───► │  detector → profitability → executor         │ ───► TickResult
-            │      ↑            ↑             ↑             │     (opps, trade,
-            │  orderbook     config      wallet · risk      │      P&L, riesgo)
-            └─────────────────────────────────────────────┘
-                 ▲                                   │
+            +---------------------------------------------+
+            |                 MOTOR (puro)                |
+ books ---> |  detector -> profitability -> executor      | ---> TickResult
+            |      ^            ^             ^            |     (opps, trade,
+            |  orderbook     config      wallet · risk     |      P&L, riesgo)
+            +---------------------------------------------+
+                 ^                                   |
    MarketDataSource (interfaz)            consumidores: CLI · Web (SSE)
-   ├── SimulatedSource  (determinista, sin red)
-   ├── WebSocketSource  (9 venues, push, baja latencia)  ◄── modo LIVE
-   └── LiveSource (ccxt) (polling REST, fallback)
+   |-- SimulatedSource  (determinista, sin red)
+   |-- WebSocketSource  (9 venues, push, baja latencia)  <-- modo LIVE
+   +-- LiveSource (ccxt) (polling REST, fallback)
 ```
 
 ### Módulos clave
 
 | Archivo | Responsabilidad |
 |---------|-----------------|
-| `domain/types.ts` | Estructuras del dominio (OrderBook, Opportunity, Trade, Wallet…). |
+| `domain/types.ts` | Estructuras del dominio (OrderBook, Opportunity, Trade, Wallet). |
 | `domain/config.ts` | Fees por exchange + parámetros de trading/riesgo (overridables por env). |
 | `engine/orderbook.ts` | Recorre el libro para un **VWAP real** en vez de confiar en el top-of-book. |
 | `engine/profitability.ts` | **Sizing que maximiza la ganancia** + net P&L honesto. |
@@ -177,16 +177,16 @@ igual lo conduzca la consola, la web, el simulador o los exchanges reales.
 
 ---
 
-## 🚀 Instalación y uso
+## Instalación y uso
 
 ### Requisitos
-- **Node.js ≥ 20** (probado en 22).
+- **Node.js >= 20** (probado en 22).
 
 ### Instalación
 
 ```bash
-git clone https://github.com/TU-USUARIO/TU-REPO.git
-cd TU-REPO
+git clone https://github.com/said7628/CCM.git
+cd CCM
 npm install          # instala TODO (ts-node y typescript son necesarios)
 ```
 
@@ -208,7 +208,7 @@ SOURCE=live npm run server
 EXCHANGES=binance,okx,kraken,coinbase,bitfinex,kucoin,gate,bitstamp,gemini SOURCE=live npm run server
 ```
 
-> 💡 También puedes cambiar entre **LIVE / SIM** desde el propio dashboard (el toggle
+> También puedes cambiar entre **LIVE / SIM** desde el propio dashboard (el toggle
 > "Fuente de datos"); la elección se guarda en el servidor.
 
 ### Dashboard de consola
@@ -228,7 +228,7 @@ npm run typecheck              # chequeo de tipos sin emitir
 
 ---
 
-## 📦 Despliegue en producción (PM2)
+## Despliegue en producción (PM2)
 
 El sistema completo es **un solo proceso Node**, perfecto para un VPS pequeño.
 Incluye un `ecosystem.config.js` listo:
@@ -244,7 +244,7 @@ pm2 logs arbi-bot               # ver ticks y trades en vivo
 pm2 save && pm2 startup         # que sobreviva reinicios del servidor
 ```
 
-> ⚠️ Corre **una sola instancia en modo `fork`** (no cluster): el motor mantiene
+> Corre **una sola instancia en modo `fork`** (no cluster): el motor mantiene
 > estado en memoria (wallets, trades, clientes SSE) y un único feed de mercado.
 > El `ecosystem.config.js` ya está configurado así.
 
@@ -253,7 +253,7 @@ puerto 8080 (con `proxy_buffering off;` para que el stream SSE no se quede colga
 
 ---
 
-## ⚙️ Variables de entorno
+## Variables de entorno
 
 Todas son opcionales — el sistema arranca con valores por defecto sensatos.
 
@@ -277,10 +277,10 @@ Todas son opcionales — el sistema arranca con valores por defecto sensatos.
 
 ---
 
-## 🖼 Capturas de pantalla
+## Capturas de pantalla
 
 <!-- ════════════════════════════════════════════════════════════════════════
-  📸 FOTO 3 — Archivo: docs/screenshots/exchanges-orderbooks.png
+  SCREENSHOT 3 — Archivo: docs/screenshots/exchanges-orderbooks.png
   Qué debe mostrar: la vista "Exchanges & Wallet". Que se vean los TOGGLES de los
   9 exchanges arriba, las tarjetas de order book (Bid/Ask/Spread por venue con la
   barra de profundidad) y la tabla "Balances por exchange". Si algún feed live está
@@ -290,7 +290,7 @@ Todas son opcionales — el sistema arranca con valores por defecto sensatos.
 ![Vista de exchanges y order books](docs/screenshots/exchanges-orderbooks.png)
 
 <!-- ════════════════════════════════════════════════════════════════════════
-  📸 FOTO 4 — Archivo: docs/screenshots/execution-log.png
+  SCREENSHOT 4 — Archivo: docs/screenshots/execution-log.png
   Qué debe mostrar: la vista "Operaciones". La tabla del log de ejecución con
   columnas (hora, compra, venta, volumen, fee, slippage, neto, estado) y, si se
   puede, la GRÁFICA de P&L acumulado subiendo. Es la prueba de que el bot opera y
@@ -300,9 +300,9 @@ Todas son opcionales — el sistema arranca con valores por defecto sensatos.
 ![Log de ejecución y P&L](docs/screenshots/execution-log.png)
 
 <!-- ════════════════════════════════════════════════════════════════════════
-  📸 FOTO 5 — Archivo: docs/screenshots/risk-engine.png
+  SCREENSHOT 5 — Archivo: docs/screenshots/risk-engine.png
   Qué debe mostrar: la vista "Riesgo". El selector de Apetito de riesgo (segmentos
-  Conservador/Moderado/Agresivo/Muy agresivo + el slider + el botón "↺ Restablecer
+  Conservador/Moderado/Agresivo/Muy agresivo + el slider + el botón "Restablecer
   por defecto"), las métricas efectivas (umbral mínimo, slippage permitido, ventana
   de exposición, drawdown máx, circuit breaker) y el panel "Latency guard" con los
   fantasmas filtrados.
@@ -311,7 +311,7 @@ Todas son opcionales — el sistema arranca con valores por defecto sensatos.
 ![Motor de riesgo](docs/screenshots/risk-engine.png)
 
 <!-- ════════════════════════════════════════════════════════════════════════
-  📸 FOTO 6 — Archivo: docs/screenshots/strategies-triangular.png
+  SCREENSHOT 6 — Archivo: docs/screenshots/strategies-triangular.png
   Qué debe mostrar: la vista "Estrategias". El selector Cross-Exchange vs
   Triangular, la recomendación del motor, y (si está en triangular) el panel de
   ruta triangular y las monedas candidatas (ETH, SOL, etc.).
@@ -320,42 +320,36 @@ Todas son opcionales — el sistema arranca con valores por defecto sensatos.
 ![Estrategias](docs/screenshots/strategies-triangular.png)
 
 <!-- ════════════════════════════════════════════════════════════════════════
-  📸 FOTO 7 (OPCIONAL) — Archivo: docs/screenshots/cost-breakdown.png
-  Qué debe mostrar: el desglose de costos acumulado (bruto → fees → slippage →
-  latencia → neto). Refuerza el mensaje de "rentabilidad neta honesta". Si no
+  SCREENSHOT 7 (OPCIONAL) — Archivo: docs/screenshots/cost-breakdown.png
+  Qué debe mostrar: el desglose de costos acumulado (bruto -> fees -> slippage ->
+  latencia -> neto). Refuerza el mensaje de "rentabilidad neta honesta". Si no
   cabe, puedes omitirla.
 ═══════════════════════════════════════════════════════════════════════════ -->
 
-> 📁 **Convención:** guarda las imágenes en `docs/screenshots/` con los nombres
+> **Convención:** guarda las imágenes en `docs/screenshots/` con los nombres
 > indicados arriba y se renderizarán automáticamente en este README.
 
 ---
 
-## 🗺 Roadmap
+## Roadmap
 
-- ✅ Modelo de dominio, VWAP, detección, sizing óptimo y net P&L honesto.
-- ✅ Ejecución simulada + wallets + fills parciales.
-- ✅ Riesgo / circuit breaker + selector de apetito con reset a defaults.
-- ✅ Feeds WebSocket event-driven en 9 venues con libros incrementales, validación de secuencia y CRC32.
-- ✅ Filtro de oportunidades fantasma con volatilidad en vivo.
-- ✅ Arbitraje **Cross-Exchange** y **Triangular**.
-- ✅ Dashboard web por SSE con persistencia entre sesiones.
-- ✅ Watchdog de frescura + badges de estado honestos.
-- 🔜 Rebalanceo automático de inventario entre venues.
-- 🔜 Arbitraje estadístico.
-- 🔜 Analítica de *time-to-live* de las oportunidades.
+- [x] Modelo de dominio, VWAP, detección, sizing óptimo y net P&L honesto.
+- [x] Ejecución simulada + wallets + fills parciales.
+- [x] Riesgo / circuit breaker + selector de apetito con reset a defaults.
+- [x] Feeds WebSocket event-driven en 9 venues con libros incrementales, validación de secuencia y CRC32.
+- [x] Filtro de oportunidades fantasma con volatilidad en vivo.
+- [x] Arbitraje **Cross-Exchange** y **Triangular**.
+- [x] Dashboard web por SSE con persistencia entre sesiones.
+- [x] Watchdog de frescura + badges de estado honestos.
+- [ ] Rebalanceo automático de inventario entre venues.
+- [ ] Arbitraje estadístico.
+- [ ] Analítica de *time-to-live* de las oportunidades.
 
 ---
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 Este proyecto es una **simulación** con fines educativos y de competencia. **No
 coloca órdenes reales** ni constituye asesoría financiera. El arbitraje real entre
 exchanges después de comisiones es muy competido y a menudo no rentable para
 participantes minoristas.
-
-<div align="center">
-
-**Construido para el hackathon · Las ineficiencias del mercado están ahí afuera. El trabajo es capturarlas antes que nadie. ⚡**
-
-</div>
