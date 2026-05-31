@@ -136,10 +136,10 @@ export const DEFAULT_TRADING: TradingConfig = {
   slippageBufferPct: 0.0002, // 0.02% safety buffer for execution latency
   latencyPenaltyPct: 0.0001, // 0.01% estimated cost of stale-data latency
   maxQuoteAgeMs: 2000,
-  executionLatencyMs: 80, // assumed time to actually land both legs (co-located/optimized)
+  executionLatencyMs: 150, // assumed time to actually land both legs
   volatilityPctPerSec: 0.0006, // ~0.06%/s fallback until measured live
   latencyRiskZ: 2.0, // require the edge to survive ~2 expected adverse moves
-  pollIntervalMs: 500, // tighter REST polling -> fresher books -> smaller exposure window
+  pollIntervalMs: 1000,
   orderBookDepth: 20,
   executionCooldownMs: 250,
 };

@@ -86,9 +86,6 @@
   .search{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 13px;width:280px;color:var(--dim);box-shadow:var(--shadow-sm);}
   .search input{border:none;background:none;outline:none;font-family:inherit;font-size:12.5px;color:var(--text);width:100%;}
   .pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 14px;font-weight:700;font-size:12px;box-shadow:var(--shadow-sm);white-space:nowrap;}
-  .modepill{display:flex;align-items:center;gap:7px;border:1px solid color-mix(in srgb,var(--green) 30%,transparent);border-radius:12px;padding:9px 13px;font-weight:800;font-size:11px;letter-spacing:.4px;text-transform:uppercase;background:var(--green-dim);color:var(--green);box-shadow:var(--shadow-sm);white-space:nowrap;}
-  .modepill.sim{border-color:color-mix(in srgb,var(--indigo) 38%,transparent);background:color-mix(in srgb,var(--indigo) 15%,transparent);color:var(--indigo);}
-  .modepill .dot.sim{background:var(--indigo);box-shadow:0 0 0 4px color-mix(in srgb,var(--indigo) 18%,transparent);animation:pulse 1.4s infinite;}
   .render{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:7px 13px;box-shadow:var(--shadow-sm);}
   .render .k{font-size:8.5px;letter-spacing:1.6px;color:var(--dim);text-transform:uppercase;font-weight:700;}
   .render .v{font-size:11.5px;font-weight:700;margin-top:1px;}
@@ -272,17 +269,6 @@
   .cfg .item{border:1px solid var(--line);border-radius:12px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;}
   .cfg .item .k{color:var(--text-2);font-weight:600;font-size:12.5px;}
   .cfg .item .v{font-weight:800;}
-  .mode-card{border:1px solid color-mix(in srgb,var(--teal) 28%,transparent);border-radius:14px;padding:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--teal) 8%,transparent),transparent),var(--panel);margin-bottom:14px;}
-  .mode-card .mode-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:13px;}
-  .mode-card .mode-title{font-size:15px;font-weight:800;margin-top:2px;}
-  .mode-card .mode-desc{color:var(--dim);font-size:11.5px;margin-top:3px;}
-  .mode-toggle{display:grid;grid-template-columns:1fr 1fr;gap:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:5px;min-width:280px;}
-  .mode-toggle button{border:none;border-radius:10px;background:transparent;color:var(--text-2);font-family:inherit;font-weight:800;font-size:12px;padding:10px 12px;cursor:pointer;transition:.15s;text-align:left;}
-  .mode-toggle button span{display:block;font-size:10px;color:var(--dim);font-weight:600;margin-top:2px;}
-  .mode-toggle button.on{background:var(--panel);color:var(--text);box-shadow:var(--shadow-sm);}
-  .mode-toggle button[data-mode=sim].on{color:var(--indigo);}
-  .mode-toggle button[data-mode=live].on{color:var(--green);}
-  .mode-feedback{font-weight:700;font-size:12px;color:var(--teal-2);min-height:18px;}
   .alertitem{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line-soft);}
   .alertitem .ai{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;}
   .alertitem .at{font-weight:700;font-size:13px;}
@@ -300,6 +286,41 @@
   .extog .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.18s;}
   .extog.on .sw{background:var(--teal);}
   .extog.on .sw::after{transform:translateX(16px);}
+  /* triangular single-select mode: radio look, only one venue active */
+  .extog.single .sw{border-radius:50%;width:22px;height:22px;background:var(--line);}
+  .extog.single .sw::after{width:10px;height:10px;top:6px;left:6px;transform:none;background:transparent;box-shadow:none;}
+  .extog.single.on .sw{background:transparent;box-shadow:inset 0 0 0 2px var(--teal);}
+  .extog.single.on .sw::after{background:var(--teal);transform:none;}
+  .extog.single.on{border-color:color-mix(in srgb,var(--teal) 42%,transparent);background:var(--teal-dim);}
+
+  /* triangular coin grid */
+  .triflag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;border-radius:8px;padding:3px 9px;background:var(--teal-dim);color:var(--teal-2);}
+  .coingrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+  .cointog{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;transition:.14s;user-select:none;background:var(--panel);}
+  .cointog:hover{border-color:color-mix(in srgb,var(--teal) 28%,transparent);}
+  .cointog.off{opacity:.5;}
+  .cointog.locked{cursor:default;border-style:dashed;background:var(--panel-soft);}
+  .cointog .cn{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px;flex:none;background:linear-gradient(135deg,var(--teal),var(--blue));}
+  .cointog .cm{display:flex;flex-direction:column;line-height:1.15;}
+  .cointog .cm b{font-weight:800;font-size:13px;}
+  .cointog .cm span{font-size:10px;color:var(--dim);font-weight:600;}
+  .cointog .sw{margin-left:auto;width:38px;height:22px;border-radius:20px;background:var(--line);position:relative;transition:.18s;flex:none;}
+  .cointog .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.18s;}
+  .cointog.on .sw{background:var(--teal);}
+  .cointog.on .sw::after{transform:translateX(16px);}
+  .cointog.locked .sw{background:var(--teal);opacity:.7;}
+  .cointog.locked .sw::after{transform:translateX(16px);}
+  .lockpill{font-size:8.5px;letter-spacing:.5px;font-weight:800;color:var(--gold);background:color-mix(in srgb,var(--gold) 16%,transparent);border-radius:6px;padding:2px 6px;text-transform:uppercase;}
+
+  /* triangular route panel */
+  .triroute{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-weight:800;font-size:15px;margin-top:4px;}
+  .trinode{background:var(--panel-soft);border:1px solid var(--line);border-radius:10px;padding:6px 12px;}
+  .triarrow{color:var(--teal-2);font-weight:800;}
+  .trikv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px;}
+  .tricell{border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:var(--panel);}
+  .tricell .k{font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);font-weight:800;}
+  .tricell .v{font-size:18px;font-weight:800;margin-top:6px;letter-spacing:-.4px;}
+  .tribanner{display:flex;align-items:center;gap:10px;background:var(--teal-dim);border:1px solid color-mix(in srgb,var(--teal) 24%,transparent);border-radius:12px;padding:11px 14px;font-weight:700;font-size:12.5px;color:var(--teal-2);}
 
   /* risk appetite slider */
   .appetite{display:flex;flex-direction:column;gap:6px;}
@@ -312,150 +333,17 @@
   .seg button.on{background:var(--teal-dim);color:var(--teal-2);border-color:color-mix(in srgb,var(--teal) 30%,transparent);}
   .reco-badge{width:46px;height:46px;border-radius:13px;background:var(--accent-grad);color:#fff;display:grid;place-items:center;font-size:22px;flex:none;box-shadow:0 6px 16px color-mix(in srgb,var(--teal) 35%,transparent);}
 
-  .mobile-nav{display:none;}
-
-  /* ---------- responsive breakpoints ----------
-     1280px+ keeps the desktop composition intact. The rules below only adapt
-     laptop/tablet/mobile widths to avoid crowding and global horizontal scroll. */
-  @media(max-width:1279px){
-    .app{grid-template-columns:224px minmax(0,1fr);}
-    .side{padding:16px 12px;}
-    .main{padding:0 20px 52px;}
-    .topbar{gap:12px;}
-    .top-tools{gap:9px;}
-    .search{width:220px;}
-    .render{display:none;}
-    .user{padding-right:8px;}
+  @media(max-width:1180px){
     .hero,.kpiwrap,.cmpwrap,.row3{grid-template-columns:1fr;}
     .row4{grid-template-columns:1fr;}
     .pnlcard{grid-template-columns:1fr;}
-    .riskgrid{grid-template-columns:repeat(2,minmax(0,1fr));}
   }
-
-  @media(max-width:1023px){
-    html,body{max-width:100%;overflow-x:hidden;}
-    .app{display:block;min-width:0;}
+  @media(max-width:880px){
+    .app{grid-template-columns:1fr;}
     .side{display:none;}
-    .main{padding:0 18px 44px;}
-    .topbar{position:sticky;top:0;display:grid;grid-template-columns:1fr;gap:12px;padding:16px 0 10px;background:linear-gradient(180deg,var(--bg) 82%,transparent);}
-    .hello{min-width:0;}
-    .hello h1{font-size:20px;}
-    .hello p{max-width:680px;}
-    .top-tools{margin-left:0;display:grid;grid-template-columns:minmax(240px,1fr) auto auto auto auto;gap:10px;width:100%;align-items:center;}
-    .search{width:100%;min-width:0;min-height:44px;}
-    .pill,.modepill{min-height:44px;padding:8px 12px;}
-    .iconbtn{width:44px;height:44px;}
-    .user{min-height:44px;max-width:150px;min-width:0;}
-    .user>div:last-child{min-width:0;}
-    .user .nm,.user .rl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .mobile-nav{position:sticky;top:82px;z-index:19;display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;margin:0 -18px 16px;padding:8px 18px 12px;background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 92%,transparent),color-mix(in srgb,var(--bg) 74%,transparent));backdrop-filter:blur(8px);}
-    .mobile-nav::-webkit-scrollbar{display:none;}
-    .mobile-nav a{flex:0 0 auto;min-height:44px;display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border-radius:13px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow-sm);color:var(--text-2);font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;}
-    .mobile-nav a svg{width:17px;height:17px;flex:none;}
-    .mobile-nav a.on{background:var(--teal-dim);border-color:color-mix(in srgb,var(--teal) 24%,transparent);color:var(--teal-2);}
-    .mobile-nav .badge{font-size:10px;background:var(--teal);color:#fff;border-radius:20px;padding:1px 7px;min-width:18px;text-align:center;}
-    .hero{grid-template-columns:1fr;}
-    .hero-r{min-height:190px;}
-    .kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
-    .exrow{grid-template-columns:repeat(2,minmax(0,1fr));}
-    .cfg{grid-template-columns:1fr;}
-    .mode-card .mode-head{flex-direction:column;}
-    .mode-toggle{width:100%;min-width:0;}
-    .sechead{gap:12px;align-items:flex-start;}
-    .card{min-width:0;}
-    .card.pad:has(table){overflow-x:auto;-webkit-overflow-scrolling:touch;}
-    .card.pad:has(table) table{min-width:680px;}
-    .card.pad:has(#scanBody) table{min-width:560px;}
-    .card.pad:has(#balTable) table,.card.pad:has(#stratTable) table{min-width:600px;}
-  }
-
-  @media(max-width:767px){
-    body{font-size:12.5px;}
-    .main{padding:0 14px 36px;}
-    .topbar{padding-top:12px;}
-    .hello h1{font-size:19px;}
-    .hello p{font-size:12px;}
-    .top-tools{grid-template-columns:1fr auto auto;gap:8px;}
-    .top-tools .search{grid-column:1 / -1;order:2;}
-    .pill{max-width:150px;justify-content:center;overflow:hidden;text-overflow:ellipsis;}
-    .modepill{max-width:150px;justify-content:center;}
-    .modepill span:last-child,.pill span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-    .user{display:none;}
-    .mobile-nav{top:124px;margin:0 -14px 14px;padding:7px 14px 11px;}
-    .pad{padding:15px;}
-    .hero-l h2{font-size:24px;max-width:100%;}
-    .hero-l p{font-size:12.5px;}
-    .hero-r{padding:19px;min-height:178px;}
-    .hero-r h3{font-size:20px;max-width:72%;}
-    .hero-r p{max-width:70%;}
-    .hero-art{width:48%;right:-34px;opacity:.55;}
-    .kpis{gap:10px;}
-    .kpi{min-height:104px;padding:13px;}
-    .kpi .ic{width:34px;height:34px;}
-    .kpi .v{font-size:20px;white-space:normal;overflow:visible;word-break:break-word;}
-    .pnlcard{padding:15px;}
-    .pnlcard .big{font-size:30px;word-break:break-word;}
-    .ministats{grid-template-columns:1fr;}
-    .pnl-viz{min-height:190px;}
-    .chartbox{min-height:166px;}
-    .exrow{grid-template-columns:1fr;}
-    .excard .price{font-size:21px;word-break:break-word;}
-    .cmpwrap [style*="height:230px"]{height:210px!important;}
-    .row3,.row4,.cmpwrap{gap:14px;margin-top:14px;}
-    .riskgrid,.rsplit{grid-template-columns:1fr;}
-    .sechead{flex-direction:column;margin-bottom:12px;}
-    .sechead>div:last-child{width:100%;}
-    .tabs{width:100%;overflow-x:auto;}
-    .tabs button{min-height:34px;flex:1;}
-    select,.btnlink,.seg button,.mode-toggle button{min-height:44px;}
-    .seg{flex-wrap:wrap;}
-    .seg button{flex:1 1 calc(50% - 6px);}
-    .mode-toggle{grid-template-columns:1fr;}
-    .cfg .item{align-items:flex-start;gap:8px;flex-direction:column;}
-    .alertitem{align-items:flex-start;}
-    .alertitem .tm{margin-left:0;}
-    .placeholder{padding:34px 16px;}
-  }
-
-  @media(max-width:479px){
-    .main{padding:0 10px 30px;}
-    .top-tools{grid-template-columns:1fr auto;}
-    .pill,.modepill{max-width:none;min-width:0;padding:8px 10px;font-size:10.5px;}
-    .modepill{grid-column:1 / 2;}
-    .iconbtn{width:44px;height:44px;}
-    .mobile-nav{top:126px;margin:0 -10px 12px;padding:6px 10px 10px;}
-    .mobile-nav a{font-size:11.5px;padding:8px 10px;}
-    .hero{gap:12px;margin-bottom:12px;}
-    .hero-l h2{font-size:22px;}
-    .hero-chips{gap:8px;}
-    .hchip{width:100%;justify-content:center;padding:9px 10px;}
-    .hero-r h3,.hero-r p{max-width:78%;}
-    .kpiwrap{gap:12px;margin-bottom:12px;}
-    .kpis{grid-template-columns:1fr;}
-    .pnlcard .big{font-size:27px;}
-    .mini .v{font-size:15px;}
-    .donut{transform:scale(.9);margin:-8px 0;}
-    .ring{transform:scale(.92);margin:-6px 0;}
-    .nettag{flex-direction:column;align-items:flex-start;gap:4px;}
-    .card.pad:has(table) table{min-width:620px;}
-    .card.pad:has(#scanBody) table{min-width:520px;}
-    .card.pad:has(#oppFull) table{min-width:780px;}
-    .card.pad:has(#opsFull) table,.card.pad:has(#logBody) table{min-width:700px;}
-    .card.pad:has(#stratTable) table{min-width:640px;}
-  }
-
-  @media(max-width:340px){
-    .main{padding-left:8px;padding-right:8px;}
-    .pad{padding:13px;}
-    .hello h1{font-size:18px;}
-    .top-tools{gap:7px;}
-    .pill,.modepill{font-size:10px;}
-    .mobile-nav{margin-left:-8px;margin-right:-8px;padding-left:8px;padding-right:8px;}
-    .hero-l h2{font-size:20px;}
-    .hero-r{min-height:166px;padding:16px;}
-    .hero-r h3{font-size:18px;}
-    .hero-r p{font-size:11.5px;}
-    .pnlcard .big{font-size:25px;}
+    .kpis{grid-template-columns:1fr 1fr;}
+    .hero-art{width:44%;right:-34px;opacity:.55;}
+    .top-tools .search,.render{display:none;}
   }
 </style>
 </head>
@@ -489,15 +377,12 @@
       <div class="top-tools">
         <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><input id="searchInput" placeholder="Buscar exchange, par u operación" /></div>
         <div class="pill"><span class="dot live" id="engineDot"></span><span id="engineLbl">Motor activo</span></div>
-        <div class="modepill" id="dataModePill"><span class="dot live" id="dataModeDot"></span><span id="dataModeLbl">LIVE · Datos reales</span></div>
         <div class="render"><div class="k">Render</div><div class="v num"><span id="renderMs">0.0</span> ms · <span id="ups">0</span> ups</div></div>
         <button class="iconbtn" id="themeBtn" title="Tema"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
         <button class="iconbtn" title="Alertas"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="nb" id="alertNb">0</span></button>
         <div class="user"><div class="av">AR</div><div><div class="nm">ArbiTrader</div><div class="rl">Cuenta Pro</div></div></div>
       </div>
     </header>
-
-    <nav class="mobile-nav" id="mobileNav" aria-label="Navegación principal móvil"></nav>
 
     <div id="views"></div>
   </main>
@@ -514,8 +399,6 @@ const usd = (n, d = 2) => "$" + (Number(n) || 0).toLocaleString("en-US", { minim
 const usdc = (n) => { const v = Number(n) || 0; const a = Math.abs(v); const f = a >= 1e6 ? (a / 1e6).toFixed(2) + "M" : a >= 1e3 ? (a / 1e3).toFixed(1) + "K" : a.toFixed(0); return (v < 0 ? "-$" : "$") + f; };
 const pct = (n) => ((Number(n) || 0) * 100).toFixed(2) + "%";
 const cls = (n) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
-// Compact integer formatter for large running counts (e.g. opportunities scanned).
-const fmtCount = (n) => { const v = Math.round(Number(n) || 0); const a = Math.abs(v); if (a >= 1e6) return (v / 1e6).toFixed(2) + "M"; if (a >= 1e4) return (v / 1e3).toFixed(1) + "K"; return v.toLocaleString("en-US"); };
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
@@ -567,28 +450,24 @@ const ICONS = {
 };
 const NAV = [
   ["resumen", "Resumen"], ["oportunidades", "Oportunidades"], ["operaciones", "Operaciones"],
-  ["exchanges", "Wallet & Exchanges"], ["riesgo", "Riesgo"], ["estrategias", "Estrategias"],
+  ["exchanges", "Exchanges"], ["riesgo", "Riesgo"], ["estrategias", "Estrategias"],
   ["backtesting", "Backtesting"], ["alertas", "Alertas"], ["configuracion", "Configuración"],
 ];
 let activeView = PREF.view && NAV.some((n) => n[0] === PREF.view) ? PREF.view : "resumen";
 
-const renderNav = (targetId, badgeSuffix = "") => {
-  $(targetId).innerHTML = NAV.map(([id, label]) =>
-    `<a data-v="${id}" class="${id === activeView ? "on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]}</svg><span>${label}</span>${id === "oportunidades" ? `<span class="badge" id="navOppBadge${badgeSuffix}">0</span>` : ""}${id === "alertas" ? `<span class="badge" id="navAlertBadge${badgeSuffix}">0</span>` : ""}</a>`
-  ).join("");
-};
-renderNav("nav");
-renderNav("mobileNav", "Mobile");
+$("nav").innerHTML = NAV.map(([id, label]) =>
+  `<a data-v="${id}" class="${id === activeView ? "on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]}</svg>${label}${id === "oportunidades" ? '<span class="badge" id="navOppBadge">0</span>' : ""}${id === "alertas" ? '<span class="badge" id="navAlertBadge">0</span>' : ""}</a>`
+).join("");
 
 /* build a container per view */
 $("views").innerHTML = NAV.map(([id]) => `<section class="view ${id === activeView ? "on" : ""}" id="view-${id}"></section>`).join("");
 const VHTML = {}; // static skeleton injected lazily
 
-document.querySelectorAll("#nav a, #mobileNav a").forEach((a) => {
+document.querySelectorAll("#nav a").forEach((a) => {
   a.onclick = () => {
     const v = a.dataset.v;
     activeView = v; PREF.view = v; savePrefs();
-    document.querySelectorAll("#nav a, #mobileNav a").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
+    document.querySelectorAll("#nav a").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
     document.querySelectorAll(".view").forEach((x) => x.classList.toggle("on", x.id === "view-" + v));
     ensureSkeleton(v); markDirty(true);
   };
@@ -654,12 +533,18 @@ const SK_RESUMEN = `
     </div>
     <div class="kpis">
       ${kpi("Portfolio value", "kPort", "del capital en uso", "M20 13V7a2 2 0 0 0-2-2H5a3 3 0 0 0 0 6h13a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a3 3 0 0 1-3-3V8m16 5h.01", "kPortSub")}
-      ${kpi("Opportunities", "kOpp", "ejecutables ahora · total escaneadas", "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z", "kOppSub")}
+      ${kpi("Opportunities", "kOpp", "ejecutables ahora mismo", "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z", "kOppSub")}
       ${kpi("Operaciones", "kOps", "ejecuciones en la sesión", "M3 12h4l3 8 4-16 3 8h4M7 7h14M7 17H3")}
       ${kpi("Exchanges activos", "kEx", "de 9 conectados", "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20", "kExSub")}
       ${kpi("Volatilidad BTC", "kVol", "medida en vivo (por seg.)", "M3 12h3l2-7 4 14 3-9 2 2h4M4 19c3-2 5-2 8 0s5 2 8 0")}
       ${kpi("Risk status", "kRisk", "circuit breaker armado", "M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5zM9 12l2 2 4-4")}
     </div>
+  </div>
+
+  <div class="card pad" id="triResumeCard" style="display:none;border-color:color-mix(in srgb,var(--teal) 28%,transparent)">
+    <div class="sechead"><div><div class="ovl">Estrategia activa · Triangular</div><div class="h">Triangulación intra-exchange</div></div>
+      <div class="triflag" id="triResumeEx">—</div></div>
+    <div id="triResumeBody"></div>
   </div>
 
   <div class="card pad">
@@ -752,14 +637,20 @@ const SK_OPS = `<div class="card pad"><div class="sechead"><div><div class="ovl"
 
 const SK_EXCHANGES = `
   <div class="card pad">
-    <div class="sechead"><div><div class="ovl">Control</div><div class="h">Tu wallet · venues activos</div></div>
-      <div style="display:flex;gap:8px"><button class="btnlink" id="exAll">Todos</button><button class="btnlink" id="exNone">Ninguno</button></div></div>
-    <div class="muted" style="margin-bottom:12px">Cada venue es una wallet pre-fondeada (BTC + USDT) sobre la que opera el motor. Elige en cuáles operar: los desactivados siguen recibiendo datos pero se excluyen de la detección. La selección se guarda en el servidor, así que persiste entre reinicios y entre navegadores.</div>
+    <div class="sechead"><div><div class="ovl">Control</div><div class="h">Exchanges activos</div></div>
+      <div style="display:flex;gap:8px" id="exBulk"><button class="btnlink" id="exAll">Todos</button><button class="btnlink" id="exNone">Ninguno</button></div></div>
+    <div class="muted" id="exHelp" style="margin-bottom:12px">Elige en qué venues opera el motor. Los desactivados siguen recibiendo datos pero se excluyen de la detección. La selección se guarda en el servidor, así que persiste entre reinicios y entre navegadores.</div>
     <div class="extoggles" id="exToggles"></div>
   </div>
-  <div class="card pad" style="margin-top:16px"><div class="sechead"><div><div class="ovl">Order book</div><div class="h">Venues conectados</div></div><div class="muted" id="exCount">0 conectados</div></div><div class="exrow" id="exrow2"></div></div>
+  <div class="card pad" id="triCoinCard" style="margin-top:16px;display:none;border-color:color-mix(in srgb,var(--teal) 28%,transparent)">
+    <div class="sechead"><div><div class="ovl">Triangular</div><div class="h">Monedas para triangular</div></div>
+      <div class="triflag" id="triCoinEx">—</div></div>
+    <div class="muted" style="margin-bottom:12px">Activa las monedas candidatas para las rutas dentro del exchange seleccionado. <b>BTC</b> y <b>USDT</b> son monedas base obligatorias (ancla del arbitraje de Bitcoin) y no se pueden desactivar. Las rutas se forman como <span class="num">USDT → BTC → MONEDA → USDT</span>. La selección se guarda en el servidor.</div>
+    <div class="coingrid" id="triCoinGrid"></div>
+  </div>
+  <div class="card pad" style="margin-top:16px"><div class="sechead"><div><div class="ovl">Order book</div><div class="h">Exchanges conectados</div></div><div class="muted" id="exCount">0 conectados</div></div><div class="exrow" id="exrow2"></div></div>
   <div class="row3" style="margin-top:16px">
-    <div class="card pad"><div class="h">Balances de tu wallet por venue</div><table style="margin-top:10px"><thead><tr><th>Venue</th><th class="r">BTC</th><th class="r">USDT</th><th class="r">Valor</th><th class="r">%</th></tr></thead><tbody id="balTable"></tbody></table></div>
+    <div class="card pad"><div class="h">Balances por exchange</div><table style="margin-top:10px"><thead><tr><th>Exchange</th><th class="r">BTC</th><th class="r">USDT</th><th class="r">Valor</th><th class="r">%</th></tr></thead><tbody id="balTable"></tbody></table></div>
     <div class="card pad"><div class="h">Soporte de conectores</div><div class="muted" style="margin-bottom:8px">Integrados vía WebSocket / REST (ccxt).</div><div id="exSupport"></div></div>
   </div>`;
 
@@ -822,6 +713,12 @@ const SK_STRAT = `
     </div>
   </div>
 
+  <div class="card pad" id="triPanel" style="margin-top:16px;display:none">
+    <div class="sechead"><div><div class="ovl">Triangular</div><div class="h">Triangulación en un solo exchange</div></div>
+      <div class="triflag" id="triPanelEx">—</div></div>
+    <div id="triPanelBody"></div>
+  </div>
+
   <div class="card pad" style="margin-top:16px">
     <div class="h">Comparativa de estrategias</div>
     <table style="margin-top:10px"><thead><tr><th>Estrategia</th><th class="r">Trades</th><th class="r">P&L</th><th class="r">P&L / trade</th><th class="r">Mejor margen</th><th class="r">Oport.</th><th class="r">Estado</th></tr></thead><tbody id="stratTable"></tbody></table>
@@ -838,18 +735,7 @@ const SK_BACKTEST = `<div class="card pad"><div class="ovl">Backtesting</div><di
 
 const SK_ALERTS = `<div class="card pad"><div class="sechead"><div><div class="ovl">Alertas</div><div class="h">Eventos del sistema</div></div><div class="muted">Generadas a partir del stream en vivo.</div></div><div id="alertList"></div></div>`;
 
-const SK_CONFIG = `<div class="card pad"><div class="ovl">Configuración</div><div class="h">Modo de operación</div><div class="muted" style="margin-bottom:12px">La fuente de verdad se guarda en el servidor y controla qué datos alimentan todo el dashboard.</div>
-  <div class="mode-card">
-    <div class="mode-head">
-      <div><div class="mode-title">Fuente de datos</div><div class="mode-desc" id="modeDesc">Selecciona datos reales o simulación controlada.</div></div>
-      <div class="mode-toggle" id="dataModeToggle">
-        <button data-mode="live">Real<span>Usa order books reales vía WebSockets.</span></button>
-        <button data-mode="sim">Simulación<span>Genera divergencias controladas para visualizar el bot en acción.</span></button>
-      </div>
-    </div>
-    <div class="mode-feedback" id="modeFeedback"></div>
-  </div>
-  <div class="h">Parámetros del motor</div><div class="muted" style="margin-bottom:12px">Valores activos del modo seleccionado.</div>
+const SK_CONFIG = `<div class="card pad"><div class="ovl">Configuración</div><div class="h">Parámetros del motor</div><div class="muted" style="margin-bottom:12px">Valores activos de la sesión (ajustables por variables de entorno al iniciar).</div>
   <div class="cfg" id="cfgGrid"></div></div>`;
 
 /* ---------- shared renderers ---------- */
@@ -875,7 +761,6 @@ function exTag(id) { const m = exMeta(id); return `<span class="exbadge"><span c
 
 /* ---------- state + render loop ---------- */
 let latest = null, dirty = false, forced = false;
-let currentDataMode = null;
 let lastReal = null; // last frame with real numbers (for delta)
 let msgCount = 0, upsTimer = Date.now(), upsVal = 0;
 let renderMs = 0;
@@ -886,11 +771,6 @@ let timeframe = PREF.tf || 300;
 function markDirty(force) { dirty = true; if (force) forced = true; }
 
 function ingest(s) {
-  if (s && s.dataMode && currentDataMode && s.dataMode !== currentDataMode) {
-    for (const k of Object.keys(PRICE)) delete PRICE[k];
-    seedPriceHistory();
-  }
-  currentDataMode = s && s.dataMode ? s.dataMode : currentDataMode;
   latest = s;
   if (s.stats && s.stats.tradesExecuted >= 0) lastReal = s;
   // update per-exchange price buffers (cheap, runs on every frame)
@@ -924,10 +804,6 @@ function renderTop(s) {
   const connected = !!es && es.readyState === 1;
   $("engineDot").className = "dot " + (s.paused ? "off" : "live");
   $("engineLbl").textContent = s.paused ? "Motor en pausa" : "Motor activo";
-  const sim = !!s.isSimulation || s.dataMode === "sim";
-  const modePill = $("dataModePill"); if (modePill) modePill.classList.toggle("sim", sim);
-  const modeDot = $("dataModeDot"); if (modeDot) modeDot.className = "dot " + (sim ? "sim" : "live");
-  setText("dataModeLbl", sim ? "SIM · Simulación activa" : "LIVE · Datos reales");
   $("renderMs").textContent = renderMs.toFixed(1);
   $("ups").textContent = upsVal;
   // sidebar strategy card
@@ -947,10 +823,8 @@ function renderTop(s) {
   // nav badges
   const oppExec = (s.opportunities || []).filter((o) => o.executable).length;
   setText("navOppBadge", oppExec);
-  setText("navOppBadgeMobile", oppExec);
   const alerts = computeAlerts(s);
   setText("navAlertBadge", alerts.length);
-  setText("navAlertBadgeMobile", alerts.length);
   setText("alertNb", alerts.length);
 }
 function cap0(s){return s? s.charAt(0).toUpperCase()+s.slice(1):s;}
@@ -983,18 +857,10 @@ function renderResumen(s) {
   const pnl = st.realizedPnl || 0;
   setText("obSym", s.symbol); 
   $("pnlBig").textContent = usd(pnl); $("pnlBig").className = "big num " + cls(pnl);
-  // Show P&L as a return on the capital actually put to work (the BTC inventory
-  // we trade with), not on the whole multi-million treasury — otherwise the
-  // denominator is so large it always rounds to +0.00%. Falls back to total
-  // value if we can't compute the deployed slice. Uses up to 3 decimals so a
-  // real (if small) edge is visible instead of looking frozen.
-  const deployed = (s.portfolio ? s.portfolio.totalBase : 0) * (s.markPrice || 0);
-  const denom = deployed || (s.portfolio ? s.portfolio.totalValueQuote : 0);
-  const deltaPct = denom ? (pnl / denom) * 100 : 0;
-  const dp = Math.abs(deltaPct) > 0 && Math.abs(deltaPct) < 0.01 ? 3 : 2;
-  const dEl = $("pnlDelta"); dEl.textContent = (deltaPct >= 0 ? "+" : "") + deltaPct.toFixed(dp) + "% " + (deltaPct >= 0 ? "↗" : "↘");
+  const baseV = (s.portfolio ? s.portfolio.totalValueQuote : 0);
+  const deltaPct = baseV ? (pnl / baseV) * 100 : 0;
+  const dEl = $("pnlDelta"); dEl.textContent = (deltaPct >= 0 ? "+" : "") + deltaPct.toFixed(2) + "% " + (deltaPct >= 0 ? "↗" : "↘");
   dEl.className = "delta " + (deltaPct < 0 ? "neg" : "");
-  dEl.title = "Retorno sobre capital en uso (" + usdc(denom) + ")";
   setText("mTrades", st.tradesExecuted || 0);
   $("mBest").textContent = usd(st.bestTradePnl || 0);
   setText("mGhosts", (st.ghostsFiltered != null ? st.ghostsFiltered : 0));
@@ -1010,11 +876,7 @@ function renderResumen(s) {
   const usePct = s.portfolio && s.portfolio.totalValueQuote ? (baseVal / s.portfolio.totalValueQuote) * 100 : 0;
   setText("kPortSub", usePct.toFixed(1) + "%");
   const execNow = (s.opportunities || []).filter((o) => o.executable).length;
-  // Persistent running total of every opportunity scanned this account's lifetime
-  // (survives restarts via server-side stats). Falls back to the live snapshot
-  // count only if the cumulative field isn't present yet.
-  const totalSeen = st.opportunitiesEvaluated != null ? st.opportunitiesEvaluated : (s.opportunities || []).length;
-  setText("kOpp", fmtCount(totalSeen));
+  setText("kOpp", (s.opportunities || []).length);
   setText("kOppSub", execNow);
   setText("kOps", st.tradesExecuted || 0);
   const activeN = (s.activeExchanges || s.exchanges || s.books || []).length;
@@ -1024,6 +886,9 @@ function renderResumen(s) {
   $("kRisk").textContent = riskLvl; $("kRisk").className = "v " + (riskLvl === "Bajo" ? "pos" : riskLvl === "Alto" ? "neg" : "");
 
   setText("heroLat", (s.bookAgeMs || 0) + " ms");
+
+  // Triangular summary card (only when triangular is the active strategy).
+  renderTriResume(s, isTriActive(s));
 
   // Active-exchange filter: hide deactivated venues from the dashboard so they
   // don't confuse the read (they keep streaming server-side, just not shown).
@@ -1074,7 +939,7 @@ function renderBalances(s) {
   const total = wl.reduce((a, b) => a + b.val, 0);
   $("balTotal").textContent = usdc(total);
   drawDonut($("balChart"), wl);
-  $("balLeg").innerHTML = wl.map((w) => `<div class="balrow"><i style="background:${exMeta(w.ex).c}"></i><span class="nm">${exMeta(w.ex).n}</span><span class="amt num">${usd(w.val)}</span><span class="pc num">${total ? ((w.val / total) * 100).toFixed(1) : "0.0"}%</span></div>`).join("");
+  $("balLeg").innerHTML = wl.map((w) => `<div class="balrow"><i style="background:${exMeta(w.ex).c}"></i><span class="nm">${exMeta(w.ex).n}</span><span class="amt num">${usd(w.val)}</span><span class="pc num">${total ? Math.round((w.val / total) * 100) : 0}%</span></div>`).join("");
 }
 
 function renderRiskMini(s) {
@@ -1159,17 +1024,31 @@ const CONNECTORS = [
   ["bitstamp", "Exchange europeo con larga trayectoria.", "REST"],
   ["gemini", "Exchange regulado con datos institucionales.", "REST"],
 ];
+// Short descriptors for the candidate coins shown in the triangular coin panel.
+const COIN_DESC = {
+  BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana", XRP: "Ripple", BNB: "BNB",
+  ADA: "Cardano", DOGE: "Dogecoin", LTC: "Litecoin", USDC: "USD Coin", EUR: "Euro",
+  USDT: "Tether",
+};
+// Is the Triangular strategy the one currently in effect?
+function isTriActive(s) {
+  return !!(s.strategy && s.strategy.effective === "triangular");
+}
 function renderExchangesView(s) {
-  renderExchangeToggles(s);
+  const tri = isTriActive(s);
+  renderExchangeToggles(s, tri);
+  renderTriCoins(s, tri);
   const actSet = activeSet(s);
   $("exrow2").innerHTML = (s.books || []).map((b) => {
     const card = exchangeCard(b, s.markPrice);
-    return actSet(b.exchange) ? card : card.replace('class="excard"', 'class="excard inactive"');
+    // In triangular mode, "active" = the single selected triangular venue.
+    const on = tri ? (s.triangular && b.exchange === s.triangular.exchange) : actSet(b.exchange);
+    return on ? card : card.replace('class="excard"', 'class="excard inactive"');
   }).join("") || `<div class="empty">Esperando feeds…</div>`;
   setText("exCount", (s.books || []).length + " conectados");
   const wl = (s.wallets || []).map((w) => ({ ex: w.exchange, base: w.base, quote: w.quote, val: w.base * (s.markPrice || 0) + w.quote }));
   const total = wl.reduce((a, b) => a + b.val, 0);
-  $("balTable").innerHTML = wl.map((w) => `<tr><td>${exTag(w.ex)}</td><td class="r num">${w.base.toFixed(4)}</td><td class="r num">${usd(w.quote)}</td><td class="r num">${usd(w.val)}</td><td class="r num">${total ? (w.val / total * 100).toFixed(1) : "0.0"}%</td></tr>`).join("") || `<tr><td colspan="5" class="empty">—</td></tr>`;
+  $("balTable").innerHTML = wl.map((w) => `<tr><td>${exTag(w.ex)}</td><td class="r num">${w.base.toFixed(4)}</td><td class="r num">${usd(w.quote)}</td><td class="r num">${usd(w.val)}</td><td class="r num">${total ? Math.round(w.val / total * 100) : 0}%</td></tr>`).join("") || `<tr><td colspan="5" class="empty">—</td></tr>`;
   const live = new Set((s.books || []).map((b) => b.exchange));
   $("exSupport").innerHTML = CONNECTORS.map(([id, desc, proto]) => {
     const on = live.has(id);
@@ -1177,10 +1056,17 @@ function renderExchangesView(s) {
   }).join("");
 }
 
-/* exchange enable/disable toggles — selection persisted server-side */
+/* exchange enable/disable toggles — selection persisted server-side.
+   Cross-Exchange: multi-select (several venues active). Triangular: single-select
+   (exactly one venue; selecting one deselects the rest). The two states are kept
+   completely independent — cross uses the `exchanges` command + activeExchanges,
+   triangular uses the `tri-exchange` command + triangular.exchange. */
 let _exToggleBuilt = false;
-let _exPending = null;       // the selection we last sent; null once server confirms it
+let _exToggleMode = null;     // "cross" | "tri" — force rebuild when the mode flips
+let _exPending = null;       // the cross selection we last sent; null once server confirms it
 let _exPendingAt = 0;        // when we sent it
+let _triExPending = null;    // the triangular venue we last clicked
+let _triExPendingAt = 0;
 function ctl(cmd, value) {
   const u = "/control?cmd=" + cmd + (value !== undefined ? "&value=" + encodeURIComponent(value) : "");
   fetch(u).catch(() => {});
@@ -1190,42 +1076,80 @@ function _normActive(active, connected) {
   if (!active) return connected.slice().sort().join(",");
   return active.slice().sort().join(",");
 }
-function renderExchangeToggles(s) {
+function renderExchangeToggles(s, tri) {
   const connected = (s.exchanges && s.exchanges.length ? s.exchanges : (s.books || []).map((b) => b.exchange));
-  const serverActive = s.activeExchanges; // null => all active
-  const serverNorm = _normActive(serverActive, connected);
-  const isOn = (id) => !serverActive || serverActive.includes(id);
   const wrap = $("exToggles");
   if (!wrap) return;
+  const mode = tri ? "tri" : "cross";
 
-  // If the server has caught up to our last sent selection, clear the pending lock.
-  if (_exPending !== null && _exPending === serverNorm) _exPending = null;
+  // Update the helper copy + bulk buttons + section heading per mode.
+  const help = $("exHelp"), bulk = $("exBulk");
+  if (help) help.innerHTML = tri
+    ? "Estrategia <b>Triangular</b>: la triangulación ocurre dentro de <b>un único exchange</b>. Activa uno y los demás se desactivan automáticamente. La selección se guarda en el servidor."
+    : "Elige en qué venues opera el motor. Los desactivados siguen recibiendo datos pero se excluyen de la detección. La selección se guarda en el servidor, así que persiste entre reinicios y entre navegadores.";
+  if (bulk) bulk.style.display = tri ? "none" : "flex";
 
-  if (!_exToggleBuilt || wrap.children.length !== connected.length) {
-    wrap.innerHTML = connected.map((id) => {
-      const m = exMeta(id);
-      return `<div class="extog ${isOn(id) ? "on" : "off"}" data-ex="${id}"><div class="exlogo" style="background:${m.c}">${m.n[0]}</div><div class="nm">${m.n}</div><div class="sw"></div></div>`;
-    }).join("");
-    wrap.querySelectorAll(".extog").forEach((el) => {
-      el.onclick = () => {
-        el.classList.toggle("on"); el.classList.toggle("off");
-        const chosen = [...wrap.querySelectorAll(".extog.on")].map((x) => x.dataset.ex);
-        // remember our intent so incoming (stale) frames don't revert it
-        _exPending = chosen.slice().sort().join(",");
-        _exPendingAt = Date.now();
-        ctl("exchanges", chosen.length === connected.length ? "" : (chosen.length ? chosen.join(",") : "__none__"));
-      };
-    });
-    const all = $("exAll"), none = $("exNone");
-    if (all) all.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.add("on"); x.classList.remove("off"); }); _exPending = connected.slice().sort().join(","); _exPendingAt = Date.now(); ctl("exchanges", ""); };
-    if (none) none.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.remove("on"); x.classList.add("off"); }); _exPending = ""; _exPendingAt = Date.now(); ctl("exchanges", "__none__"); };
+  // Rebuild the toggle DOM when first built, when the venue count changes, or
+  // when the strategy mode flips (multi-select <-> single-select).
+  if (!_exToggleBuilt || _exToggleMode !== mode || wrap.children.length !== connected.length) {
+    if (tri) {
+      const sel = s.triangular && s.triangular.exchange;
+      wrap.innerHTML = connected.map((id) => {
+        const m = exMeta(id);
+        const on = id === sel;
+        return `<div class="extog single ${on ? "on" : "off"}" data-ex="${id}"><div class="exlogo" style="background:${m.c}">${m.n[0]}</div><div class="nm">${m.n}</div><div class="sw"></div></div>`;
+      }).join("");
+      wrap.querySelectorAll(".extog").forEach((el) => {
+        el.onclick = () => {
+          // Single-select: turn this one on, all others off, then tell the server.
+          wrap.querySelectorAll(".extog").forEach((x) => { x.classList.remove("on"); x.classList.add("off"); });
+          el.classList.add("on"); el.classList.remove("off");
+          _triExPending = el.dataset.ex; _triExPendingAt = Date.now();
+          ctl("tri-exchange", el.dataset.ex);
+        };
+      });
+    } else {
+      const serverActive = s.activeExchanges;
+      const isOn = (id) => !serverActive || serverActive.includes(id);
+      wrap.innerHTML = connected.map((id) => {
+        const m = exMeta(id);
+        return `<div class="extog ${isOn(id) ? "on" : "off"}" data-ex="${id}"><div class="exlogo" style="background:${m.c}">${m.n[0]}</div><div class="nm">${m.n}</div><div class="sw"></div></div>`;
+      }).join("");
+      wrap.querySelectorAll(".extog").forEach((el) => {
+        el.onclick = () => {
+          el.classList.toggle("on"); el.classList.toggle("off");
+          const chosen = [...wrap.querySelectorAll(".extog.on")].map((x) => x.dataset.ex);
+          _exPending = chosen.slice().sort().join(",");
+          _exPendingAt = Date.now();
+          ctl("exchanges", chosen.length === connected.length ? "" : (chosen.length ? chosen.join(",") : "__none__"));
+        };
+      });
+      const all = $("exAll"), none = $("exNone");
+      if (all) all.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.add("on"); x.classList.remove("off"); }); _exPending = connected.slice().sort().join(","); _exPendingAt = Date.now(); ctl("exchanges", ""); };
+      if (none) none.onclick = () => { wrap.querySelectorAll(".extog").forEach((x) => { x.classList.remove("on"); x.classList.add("off"); }); _exPending = ""; _exPendingAt = Date.now(); ctl("exchanges", "__none__"); };
+    }
     _exToggleBuilt = true;
+    _exToggleMode = mode;
+    return;
+  }
+
+  // Sync from server frames, respecting any in-flight user intent.
+  if (tri) {
+    const sel = s.triangular && s.triangular.exchange;
+    const inFlight = _triExPending !== null && (Date.now() - _triExPendingAt) < 4000;
+    if (inFlight && _triExPending === sel) _triExPending = null;
+    if (!inFlight) {
+      _triExPending = null;
+      wrap.querySelectorAll(".extog").forEach((el) => {
+        const on = el.dataset.ex === sel;
+        el.classList.toggle("on", on); el.classList.toggle("off", !on);
+      });
+    }
   } else {
-    // Don't let server frames overwrite the user's intent while a change is in
-    // flight (SSE is ~10fps, so a stale frame can arrive after the click and
-    // revert it — this was the "OKX turns itself back on" bug). We only sync
-    // from the server once it confirms our pending selection, or after a grace
-    // window in case the request was dropped.
+    const serverActive = s.activeExchanges;
+    const serverNorm = _normActive(serverActive, connected);
+    const isOn = (id) => !serverActive || serverActive.includes(id);
+    if (_exPending !== null && _exPending === serverNorm) _exPending = null;
     const inFlight = _exPending !== null && (Date.now() - _exPendingAt) < 4000;
     if (!inFlight) {
       _exPending = null;
@@ -1234,6 +1158,67 @@ function renderExchangeToggles(s) {
         el.classList.toggle("on", on); el.classList.toggle("off", !on);
       });
     }
+  }
+}
+
+/* triangular candidate-coin panel — toggles persisted server-side via tri-coins */
+let _triCoinPending = null;
+let _triCoinPendingAt = 0;
+function renderTriCoins(s, tri) {
+  const card = $("triCoinCard");
+  if (!card) return;
+  card.style.display = tri ? "block" : "none";
+  if (!tri) return;
+  const t = s.triangular || {};
+  const base = t.baseCoins || ["BTC", "USDT"];
+  const available = t.availableCoins || [];
+  const active = new Set(t.activeCoins || []);
+  setText("triCoinEx", t.exchange ? exMeta(t.exchange).n : "—");
+
+  // The full list to render: mandatory base coins first (locked on), then the
+  // candidate coins. BTC/USDT are always shown as locked-active anchors.
+  const grid = $("triCoinGrid");
+  if (!grid) return;
+  const baseRows = base.map((c) => {
+    const desc = COIN_DESC[c] || c;
+    return `<div class="cointog locked on" data-coin="${c}" data-locked="1"><div class="cn">${c[0]}</div><div class="cm"><b>${c}</b><span>${desc}</span></div><span class="lockpill">Base</span><div class="sw"></div></div>`;
+  });
+  const candRows = available.filter((c) => !base.includes(c)).map((c) => {
+    const on = active.has(c);
+    const desc = COIN_DESC[c] || c;
+    return `<div class="cointog ${on ? "on" : "off"}" data-coin="${c}"><div class="cn">${c[0]}</div><div class="cm"><b>${c}</b><span>${desc}</span></div><div class="sw"></div></div>`;
+  });
+  const html = baseRows.concat(candRows).join("");
+
+  // Confirm pending once the server's active set matches what we sent.
+  const serverNorm = [...active].sort().join(",");
+  if (_triCoinPending !== null && _triCoinPending === serverNorm) _triCoinPending = null;
+  const inFlight = _triCoinPending !== null && (Date.now() - _triCoinPendingAt) < 4000;
+
+  // Rebuild DOM only when the set of rows changes (cheap + keeps clicks responsive).
+  const sig = base.concat(available).join("|");
+  if (grid.dataset.sig !== sig) {
+    grid.innerHTML = html;
+    grid.dataset.sig = sig;
+    grid.querySelectorAll(".cointog").forEach((el) => {
+      if (el.dataset.locked) return; // base coins can't be toggled
+      el.onclick = () => {
+        el.classList.toggle("on"); el.classList.toggle("off");
+        const chosen = [...grid.querySelectorAll(".cointog.on")]
+          .map((x) => x.dataset.coin)
+          .filter((c) => !base.includes(c));
+        _triCoinPending = chosen.slice().sort().join(",");
+        _triCoinPendingAt = Date.now();
+        ctl("tri-coins", chosen.join(","));
+      };
+    });
+  } else if (!inFlight) {
+    // Sync visual state from server (only when no user change is in flight).
+    grid.querySelectorAll(".cointog").forEach((el) => {
+      if (el.dataset.locked) return;
+      const on = active.has(el.dataset.coin);
+      el.classList.toggle("on", on); el.classList.toggle("off", !on);
+    });
   }
 }
 
@@ -1331,8 +1316,106 @@ function renderStratView(s) {
     const time = new Date(e.ts).toLocaleTimeString("es-ES");
     return `<div class="alertitem"><div class="ai" style="background:color-mix(in srgb,var(--indigo) 16%,transparent);color:var(--indigo)">⇄</div><div><div class="at">${STRAT_LABELS[e.from] || e.from} → ${STRAT_LABELS[e.to] || e.to}</div><div class="as">${esc(e.reason)}</div></div><div class="tm">${time}</div></div>`;
   }).join("") : `<div class="empty">Sin cambios de estrategia todavía.</div>`;
+
+  // triangular detail panel (only meaningful when triangular is the active strategy)
+  renderTriPanel(s, strat.effective === "triangular");
+}
+
+/* Renders the triangular summary: selected venue, active coins, recommended
+   route, estimated profit and fee cost. Reused by the strategy view. */
+function triRouteHtml(path) {
+  // "USDT→BTC→ETH→USDT" -> styled node/arrow chain
+  const nodes = String(path || "").split("→");
+  if (nodes.length < 2) return `<span class="muted">Sin ruta disponible aún.</span>`;
+  return `<div class="triroute">` + nodes.map((n, i) =>
+    `<span class="trinode">${esc(n)}</span>` + (i < nodes.length - 1 ? `<span class="triarrow">→</span>` : "")
+  ).join("") + `</div>`;
+}
+function renderTriPanel(s, show) {
+  const panel = $("triPanel");
+  if (!panel) return;
+  panel.style.display = show ? "block" : "none";
+  if (!show) return;
+  const t = s.triangular || {};
+  setText("triPanelEx", t.exchange ? exMeta(t.exchange).n : "—");
+  const opp = t.opportunity || null;
+  const coins = (t.activeCoins || []);
+  const coinTags = coins.length
+    ? coins.map((c) => `<span class="triflag" style="background:var(--panel-soft);color:var(--text-2)">${esc(c)}</span>`).join(" ")
+    : `<span class="muted">Ninguna activa</span>`;
+  const fee = (t.takerFee != null) ? (t.takerFee * 100).toFixed(3) + "%" : "—";
+  const feeCost = opp ? usd(t.feeCostUSDT || 0) : "—";
+  const notional = usd(t.notionalUSDT || 0, 0);
+  const profit = opp ? usd(opp.netProfit) : "$0.00";
+  const profitPct = opp ? pct(opp.netProfitPct) : "0.00%";
+  const profitCls = opp ? cls(opp.netProfit) : "";
+  const exec = opp && opp.executable;
+  const banner = exec
+    ? `<div class="tribanner"><span class="dot live"></span> Ruta ejecutable detectada en ${esc(exMeta(t.exchange).n)} · ${esc(opp.coin)} · ${profitPct} neto</div>`
+    : `<div class="tribanner" style="background:var(--panel-soft);color:var(--dim);border-color:var(--line)">Vigilando rutas… BTC y USDT son anclas base; activa más monedas para ampliar las rutas.</div>`;
+
+  // Candidate routes table (per active coin).
+  const cands = (t.candidates || []);
+  const candRows = cands.map((c) => {
+    const st = c.executable ? `<span class="stbadge st-exec">Ejecutable</span>` : `<span class="stbadge st-rej">En espera</span>`;
+    return `<tr><td><b>${esc(c.coin)}</b></td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r">${st}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">Aún sin rutas priceables. Verifica que el exchange tenga los pares COIN/BTC y COIN/USDT.</td></tr>`;
+
+  $("triPanelBody").innerHTML = `
+    ${banner}
+    <div style="margin-top:14px"><div class="ovl">Monedas activas</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">${coinTags}</div></div>
+    <div style="margin-top:16px"><div class="ovl">Ruta triangular recomendada</div>${triRouteHtml(opp && opp.path)}</div>
+    <div class="trikv">
+      <div class="tricell"><div class="k">Exchange</div><div class="v">${esc(exMeta(t.exchange).n)}</div></div>
+      <div class="tricell"><div class="k">Profit estimado</div><div class="v ${profitCls}">${profit}</div></div>
+      <div class="tricell"><div class="k">Profit %</div><div class="v ${profitCls}">${profitPct}</div></div>
+      <div class="tricell"><div class="k">Notional</div><div class="v num">${notional}</div></div>
+      <div class="tricell"><div class="k">Fee (taker)</div><div class="v num">${fee}</div></div>
+      <div class="tricell"><div class="k">Costo fees (3 patas)</div><div class="v num">${feeCost}</div></div>
+    </div>
+    <div style="margin-top:18px"><div class="h" style="font-size:14px">Rutas candidatas por moneda</div>
+      <table style="margin-top:8px"><thead><tr><th>Moneda</th><th>Ruta</th><th class="r">Profit</th><th class="r">%</th><th class="r">Estado</th></tr></thead><tbody>${candRows}</tbody></table>
+    </div>`;
 }
 const s2cache = {};
+
+/* Compact triangular summary for the Resumen dashboard. */
+function renderTriResume(s, show) {
+  const card = $("triResumeCard");
+  if (!card) return;
+  card.style.display = show ? "block" : "none";
+  if (!show) return;
+  const t = s.triangular || {};
+  setText("triResumeEx", t.exchange ? exMeta(t.exchange).n : "—");
+  const opp = t.opportunity || null;
+  const coins = (t.activeCoins || []);
+  const coinTags = coins.length
+    ? coins.map((c) => `<span class="triflag" style="background:var(--panel-soft);color:var(--text-2)">${esc(c)}</span>`).join(" ")
+    : `<span class="muted">Ninguna activa</span>`;
+  const profit = opp ? usd(opp.netProfit) : "$0.00";
+  const profitPct = opp ? pct(opp.netProfitPct) : "0.00%";
+  const profitCls = opp ? cls(opp.netProfit) : "";
+  const fee = (t.takerFee != null) ? (t.takerFee * 100).toFixed(3) + "%" : "—";
+  const feeCost = opp ? usd(t.feeCostUSDT || 0) : "—";
+  const exec = opp && opp.executable;
+  const banner = exec
+    ? `<div class="tribanner"><span class="dot live"></span> Ruta ejecutable en ${esc(exMeta(t.exchange).n)} · ${esc(opp.coin)} · ${profitPct} neto</div>`
+    : `<div class="tribanner" style="background:var(--panel-soft);color:var(--dim);border-color:var(--line)">Vigilando rutas dentro de ${esc(exMeta(t.exchange).n)}…</div>`;
+  $("triResumeBody").innerHTML = `
+    ${banner}
+    <div style="margin-top:13px"><div class="ovl">Monedas activas (BTC/USDT base)</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px"><span class="triflag">BTC</span><span class="triflag">USDT</span>${coinTags}</div></div>
+    <div style="margin-top:14px"><div class="ovl">Ruta recomendada</div>${triRouteHtml(opp && opp.path)}</div>
+    <div class="trikv">
+      <div class="tricell"><div class="k">Profit estimado</div><div class="v ${profitCls}">${profit}</div></div>
+      <div class="tricell"><div class="k">Profit %</div><div class="v ${profitCls}">${profitPct}</div></div>
+      <div class="tricell"><div class="k">Fee taker</div><div class="v num">${fee}</div></div>
+      <div class="tricell"><div class="k">Costo fees (3 patas)</div><div class="v num">${feeCost}</div></div>
+    </div>
+    <a class="btnlink" data-goto="estrategias" style="margin-top:13px">Ver detalle triangular →</a>`;
+  // wire the deep-link button (skeleton is static so onclick must be (re)bound)
+  const link = $("triResumeBody").querySelector("[data-goto]");
+  if (link) link.onclick = () => { document.querySelector(`#nav a[data-v="estrategias"]`)?.click(); };
+}
 
 /* ===== BACKTESTING ===== */
 function renderBacktestView(s) {
@@ -1365,49 +1448,19 @@ function renderAlertsView(s) {
   $("alertList").innerHTML = alerts.map((a) => `<div class="alertitem"><div class="ai" style="background:${col[a.k]}1f;color:${col[a.k]}">${a.k === "switch" ? "⇄" : "●"}</div><div><div class="at">${esc(a.t)}</div><div class="as">${esc(a.s)}</div></div><div class="tm">${a.time}</div></div>`).join("") || `<div class="empty">Sin alertas activas. Todo en orden.</div>`;
 }
 
-async function setDataMode(mode) {
-  const feedback = $("modeFeedback");
-  if (feedback) feedback.textContent = "Cambiando modo…";
-  try {
-    const r = await fetch("/api/settings/data-mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataMode: mode }) });
-    if (!r.ok) throw new Error(await r.text());
-    const data = await r.json();
-    currentDataMode = data.dataMode;
-    for (const k of Object.keys(PRICE)) delete PRICE[k];
-    await seedPriceHistory();
-    if (feedback) feedback.textContent = data.dataMode === "sim" ? "Modo Simulación activado" : "Modo Real activado";
-    markDirty(true);
-  } catch (e) {
-    if (feedback) feedback.textContent = "No se pudo cambiar el modo";
-  }
-}
-function syncDataModeToggle(s) {
-  const mode = (s && s.dataMode) || currentDataMode || "live";
-  const wrap = $("dataModeToggle");
-  if (!wrap) return;
-  wrap.querySelectorAll("button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.mode === mode);
-    if (!b.dataset.wired) { b.dataset.wired = "1"; b.onclick = () => setDataMode(b.dataset.mode); }
-  });
-  const desc = $("modeDesc");
-  if (desc) desc.textContent = mode === "sim" ? "Simulación activa: oportunidades, balances y P&L son simulados." : "Modo real activo: el dashboard refleja los WebSockets/order books reales.";
-}
-
 /* ===== CONFIG ===== */
 function renderConfigView(s) {
-  syncDataModeToggle(s);
   const rows = [
-    ["Símbolo", s.symbol], ["Modo de datos", s.isSimulation ? "SIM · Simulación" : "LIVE · Real"],
-    ["Fuente activa", s.sourceStatus || (s.isSimulation ? "simulation_engine" : "real_market_data")],
+    ["Símbolo", s.symbol], ["Modo de datos", String(s.mode || "").toUpperCase()],
     ["Exchanges", (s.exchanges || []).map((e) => exMeta(e).n).join(", ")],
     ["Latencia promedio", (s.avgLatencyMs || 0).toFixed(0) + " ms"],
     ["Antigüedad del libro", (s.bookAgeMs || 0).toFixed(0) + " ms"],
     ["Trades ejecutados", s.stats ? s.stats.tradesExecuted : 0],
-    ["Oportunidades escaneadas", fmtCount(s.stats ? (s.stats.opportunitiesEvaluated ?? 0) : 0)],
-    ["Oportunidades ejecutables", fmtCount(s.stats ? s.stats.opportunitiesSeen : 0)],
+    ["Oportunidades vistas", s.stats ? s.stats.opportunitiesSeen : 0],
     ["Circuit breaker", s.risk && s.risk.breakerActive ? "Disparado" : "Armado"],
     ["Valor de portfolio", usd(s.portfolio ? s.portfolio.totalValueQuote : 0)],
-    ["Triangular", s.triangular && s.triangular.enabled ? "Activado (" + cap0(s.triangular.exchange) + ")" : "Desactivado"],
+    ["Triangular · exchange", s.triangular && s.triangular.enabled ? cap0(s.triangular.exchange) : "—"],
+    ["Triangular · monedas", s.triangular && s.triangular.activeCoins ? (s.triangular.activeCoins.join(", ") || "—") : "—"],
   ];
   $("cfgGrid").innerHTML = rows.map(([k, v]) => `<div class="item"><span class="k">${esc(k)}</span><span class="v num">${esc(v)}</span></div>`).join("");
 }
@@ -1469,42 +1522,9 @@ $("searchInput").addEventListener("input", () => markDirty(true));
 
 /* ---------- boot ---------- */
 ensureSkeleton(activeView);
-loadSettings();
-seedPriceHistory();
 connect();
 requestAnimationFrame(loop);
 window.addEventListener("resize", () => markDirty(true));
-
-// Pull the server's persisted per-exchange price history so the comparison
-// chart's 15M / 1H windows are populated immediately on load (and after a
-// server restart), instead of starting empty and only filling going forward.
-async function loadSettings() {
-  try {
-    const r = await fetch("/api/settings");
-    if (!r.ok) return;
-    const data = await r.json();
-    currentDataMode = data.dataMode || currentDataMode;
-    syncDataModeToggle(data);
-  } catch {}
-}
-
-async function seedPriceHistory() {
-  try {
-    const r = await fetch("/prices");
-    if (!r.ok) return;
-    const data = await r.json();
-    for (const ex in data) {
-      if (!Array.isArray(data[ex])) continue;
-      const existing = PRICE[ex] || [];
-      // Merge server history with anything we already buffered, de-duped by time.
-      const seen = new Set(existing.map((p) => p.t));
-      const merged = data[ex].filter((p) => !seen.has(p.t)).concat(existing);
-      merged.sort((a, b) => a.t - b.t);
-      PRICE[ex] = merged.slice(-PRICE_MAX);
-    }
-    markDirty(true);
-  } catch {}
-}
 </script>
 </body>
 </html>
