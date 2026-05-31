@@ -14,14 +14,6 @@
 
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════
-  SCREENSHOT 1 — Archivo: docs/screenshots/dashboard-overview.png
-  Qué debe mostrar: la vista principal (Dashboard) completa. Que se vean los
-  KPIs de arriba (P&L Neto Realizado, Exchanges activos, Latencia media, Nivel
-  de riesgo), el hero con el P&L grande y el chip "Mercado sincronizado en vivo".
-  Es la foto estrella — ponla bonita y con datos (idealmente en modo SIM con P&L
-  positivo acumulado).
-═══════════════════════════════════════════════════════════════════════════ -->
 ![Dashboard principal de FlowChain](docs/screenshots/dashboard-overview.png)
 
 ---
@@ -119,13 +111,7 @@ Cada `tick()` es **un ciclo de decisión completo**:
 5. **Ejecución simulada.** Se "compra" en el venue barato y se "vende" en el caro al mismo tamaño, recortado por la liquidez del libro **y** por lo que las wallets pueden fondear, generando un *fill parcial* si hace falta.
 6. **Registro.** Se actualizan balances, P&L acumulado y el historial, y se emite un snapshot al dashboard por SSE.
 
-<!-- ════════════════════════════════════════════════════════════════════════
-  SCREENSHOT 2 — Archivo: docs/screenshots/opportunities-scanner.png
-  Qué debe mostrar: el feed de "Oportunidades detectadas". Importante que se vean
-  TANTO oportunidades ejecutables (verdes, con ganancia neta) COMO rechazadas con
-  su razón (ej. "Latency ghost", "negative_net", "below_threshold"). Eso demuestra
-  la inteligencia de costos del bot, no solo que detecta spreads.
-═══════════════════════════════════════════════════════════════════════════ -->
+
 ![Scanner de oportunidades](docs/screenshots/opportunities-scanner.png)
 
 ---
@@ -187,13 +173,13 @@ igual lo conduzca la consola, la web, el simulador o los exchanges reales.
 ```bash
 git clone https://github.com/said7628/CCM.git
 cd CCM
-npm install          # instala TODO (ts-node y typescript son necesarios)
+npm install        
 ```
 
 ### Modo demo (simulador determinista, sin red) — recomendado para presentar
 
 ```bash
-npm run server       # dashboard en http://localhost:8080 (modo SIM)
+npm run server     
 ```
 
 El simulador genera divergencias controladas que **cruzan el umbral de costos**,
@@ -214,16 +200,16 @@ EXCHANGES=binance,okx,kraken,coinbase,bitfinex,kucoin,gate,bitstamp,gemini SOURC
 ### Dashboard de consola
 
 ```bash
-npm run cli                    # paso a paso (SIM)
-SOURCE=sim-stream npm run cli  # event-driven
-SOURCE=live npm run cli        # feeds reales por WebSocket
+npm run cli                  
+SOURCE=sim-stream npm run cli 
+SOURCE=live npm run cli      
 ```
 
 ### Tests
 
 ```bash
-npm test                       # motor + order books + conectores + latency-risk
-npm run typecheck              # chequeo de tipos sin emitir
+npm test                      
+npm run typecheck           
 ```
 
 ---
@@ -238,10 +224,10 @@ npm install
 npm install -g pm2
 mkdir -p logs data
 
-pm2 start ecosystem.config.js   # arranca el dashboard en el puerto 8080
-pm2 status                      # estado
-pm2 logs arbi-bot               # ver ticks y trades en vivo
-pm2 save && pm2 startup         # que sobreviva reinicios del servidor
+pm2 start ecosystem.config.js   
+pm2 status                      
+pm2 logs arbi-bot               
+pm2 save && pm2 startup        
 ```
 
 > Corre **una sola instancia en modo `fork`** (no cluster): el motor mantiene
@@ -279,52 +265,22 @@ Todas son opcionales — el sistema arranca con valores por defecto sensatos.
 
 ## Capturas de pantalla
 
-<!-- ════════════════════════════════════════════════════════════════════════
-  SCREENSHOT 3 — Archivo: docs/screenshots/exchanges-orderbooks.png
-  Qué debe mostrar: la vista "Exchanges & Wallet". Que se vean los TOGGLES de los
-  9 exchanges arriba, las tarjetas de order book (Bid/Ask/Spread por venue con la
-  barra de profundidad) y la tabla "Balances por exchange". Si algún feed live está
-  congelado, mejor aún: se nota el badge gris "hace Xs" (feeds honestos).
-═══════════════════════════════════════════════════════════════════════════ -->
+
 ### Exchanges y order books (los 9 venues + wallets)
 ![Vista de exchanges y order books](docs/screenshots/exchanges-orderbooks.png)
 
-<!-- ════════════════════════════════════════════════════════════════════════
-  SCREENSHOT 4 — Archivo: docs/screenshots/execution-log.png
-  Qué debe mostrar: la vista "Operaciones". La tabla del log de ejecución con
-  columnas (hora, compra, venta, volumen, fee, slippage, neto, estado) y, si se
-  puede, la GRÁFICA de P&L acumulado subiendo. Es la prueba de que el bot opera y
-  gana.
-═══════════════════════════════════════════════════════════════════════════ -->
+
 ### Log de ejecución y P&L acumulado
 ![Log de ejecución y P&L](docs/screenshots/execution-log.png)
 
-<!-- ════════════════════════════════════════════════════════════════════════
-  SCREENSHOT 5 — Archivo: docs/screenshots/risk-engine.png
-  Qué debe mostrar: la vista "Riesgo". El selector de Apetito de riesgo (segmentos
-  Conservador/Moderado/Agresivo/Muy agresivo + el slider + el botón "Restablecer
-  por defecto"), las métricas efectivas (umbral mínimo, slippage permitido, ventana
-  de exposición, drawdown máx, circuit breaker) y el panel "Latency guard" con los
-  fantasmas filtrados.
-═══════════════════════════════════════════════════════════════════════════ -->
+
 ### Motor de riesgo y selector de apetito
 ![Motor de riesgo](docs/screenshots/risk-engine.png)
 
-<!-- ════════════════════════════════════════════════════════════════════════
-  SCREENSHOT 6 — Archivo: docs/screenshots/strategies-triangular.png
-  Qué debe mostrar: la vista "Estrategias". El selector Cross-Exchange vs
-  Triangular, la recomendación del motor, y (si está en triangular) el panel de
-  ruta triangular y las monedas candidatas (ETH, SOL, etc.).
-═══════════════════════════════════════════════════════════════════════════ -->
+
 ### Estrategias: Cross-Exchange y Triangular
 ![Estrategias](docs/screenshots/strategies-triangular.png)
 
-<!-- ════════════════════════════════════════════════════════════════════════
-  SCREENSHOT 7 (OPCIONAL) — Archivo: docs/screenshots/cost-breakdown.png
-  Qué debe mostrar: el desglose de costos acumulado (bruto -> fees -> slippage ->
-  latencia -> neto). Refuerza el mensaje de "rentabilidad neta honesta". Si no
-  cabe, puedes omitirla.
-═══════════════════════════════════════════════════════════════════════════ -->
 
 > **Convención:** guarda las imágenes en `docs/screenshots/` con los nombres
 > indicados arriba y se renderizarán automáticamente en este README.
