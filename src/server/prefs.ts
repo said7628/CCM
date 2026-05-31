@@ -29,6 +29,8 @@ export interface EnginePrefs {
    * null = use the engine's built-in default active set.
    */
   triCoins: string[] | null;
+  /** Persisted dashboard data source. 'live' uses real feeds; 'sim' uses the existing simulator. */
+  dataMode: 'live' | 'sim';
 }
 
 const DEFAULT_PREFS: EnginePrefs = {
@@ -37,6 +39,7 @@ const DEFAULT_PREFS: EnginePrefs = {
   strategy: 'cross',
   triExchange: null,
   triCoins: null,
+  dataMode: 'sim',
 };
 
 const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), 'data');
@@ -45,7 +48,9 @@ const FILE = path.join(DATA_DIR, 'arbicore-prefs.json');
 export function loadPrefs(): EnginePrefs {
   try {
     const parsed = JSON.parse(fs.readFileSync(FILE, 'utf8')) as Partial<EnginePrefs>;
-    return { ...DEFAULT_PREFS, ...parsed };
+    const merged = { ...DEFAULT_PREFS, ...parsed };
+    merged.dataMode = merged.dataMode === 'live' ? 'live' : 'sim';
+    return merged;
   } catch {
     return { ...DEFAULT_PREFS };
   }

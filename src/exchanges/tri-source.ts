@@ -21,6 +21,8 @@ export interface TriFeed {
   setCoins?(coins: readonly string[]): void;
   /** Optional per-pair status used by the dashboard to explain missing books. */
   getPairStatuses?(): Record<string, string>;
+  /** Optional exact pair universe being synchronized. */
+  getRequiredPairs?(): string[];
 }
 
 /** All pairs needed to price the loops for a set of candidate coins. */
@@ -104,9 +106,10 @@ export class SimTriFeed implements TriFeed {
   }
   getPairStatuses(): Record<string, string> {
     const statuses: Record<string, string> = {};
-    for (const pair of pairsForCoins(this.coins)) statuses[pair] = this.books[pair] ? 'OK' : 'Sin order book todavía';
+    for (const pair of pairsForCoins(this.coins)) statuses[pair] = this.books[pair] ? 'Listo' : 'Cargando';
     return statuses;
   }
+  getRequiredPairs(): string[] { return pairsForCoins(this.coins); }
   private regen(): void {
     // Mean-reverting walk for BTC/USD.
     this.btc += (70_000 - this.btc) * 0.05 + this.btc * (this.rng() - 0.5) * 0.0006;
@@ -143,6 +146,40 @@ function errorMessage(err: unknown): string {
 
 const BINANCE_SPOT_SYMBOL_CACHE = new Map<string, Set<string>>();
 const BINANCE_SPOT_ERROR_CACHE = new Map<string, string>();
+const CCXT_SPOT_SYMBOL_CACHE = new Map<string, Set<string>>();
+const CCXT_SPOT_ERROR_CACHE = new Map<string, string>();
+
+
+
+type CcxtMarketLoader = {
+  loadMarkets(): Promise<Record<string, { active?: boolean; spot?: boolean }>>;
+};
+
+async function loadCcxtSpotSymbols(exchange: string): Promise<Set<string>> {
+  const cached = CCXT_SPOT_SYMBOL_CACHE.get(exchange);
+  if (cached) return cached;
+  const failed = CCXT_SPOT_ERROR_CACHE.get(exchange);
+  if (failed) throw new Error(failed);
+  try {
+    const ccxt = (await import('ccxt')).default as unknown as Record<string, new (cfg: object) => CcxtMarketLoader>;
+    const Cls = ccxt[exchange];
+    if (!Cls) throw new Error(`Unknown ccxt exchange: ${exchange}`);
+    const client = new Cls({ enableRateLimit: true, options: { defaultType: 'spot', defaultSubType: 'spot' } });
+    const markets = await client.loadMarkets();
+    const symbols = new Set<string>();
+    for (const [symbol, m] of Object.entries(markets)) {
+      if (m.active === false) continue;
+      if (m.spot === false) continue;
+      symbols.add(symbol);
+    }
+    CCXT_SPOT_SYMBOL_CACHE.set(exchange, symbols);
+    return symbols;
+  } catch (err) {
+    const msg = errorMessage(err);
+    CCXT_SPOT_ERROR_CACHE.set(exchange, msg);
+    throw new Error(msg);
+  }
+}
 
 async function loadBinanceSpotSymbols(): Promise<Set<string>> {
   const base = process.env.BINANCE_REST_BASE ?? 'https://data-api.binance.vision';
@@ -183,6 +220,8 @@ export class NativeWsTriFeed implements TriFeed {
   private statuses: Record<string, string> = {};
   private running = false;
   private logged = new Set<string>();
+  private startedAt: Record<string, number> = {};
+  private readonly wsTimeoutMs = Number(process.env.TRI_WS_TIMEOUT_MS ?? 8000);
 
   constructor(private exchange: string, coins: readonly string[] = ['ETH'], private depth = 20) {
     this.pairs = pairsForCoins(coins);
@@ -206,12 +245,15 @@ export class NativeWsTriFeed implements TriFeed {
   }
 
   getBooks(): Record<string, OrderBook> {
+    const now = Date.now();
     for (const [pair, client] of this.clients) {
       if (client.isReady()) {
-        this.books[pair] = client.getOrderBook();
-        this.statuses[pair] = 'OK';
+        const book = client.getOrderBook();
+        this.books[pair] = book;
+        this.statuses[pair] = book.bids[0] && book.asks[0] ? 'Listo' : 'Sin liquidez';
       } else if (!this.books[pair]) {
-        this.statuses[pair] = 'Esperando WebSocket';
+        const age = now - (this.startedAt[pair] ?? now);
+        this.statuses[pair] = age >= this.wsTimeoutMs ? 'WebSocket pendiente' : 'Cargando';
       }
     }
     return { ...this.books };
@@ -219,9 +261,11 @@ export class NativeWsTriFeed implements TriFeed {
 
   getPairStatuses(): Record<string, string> {
     this.getBooks();
-    for (const pair of this.pairs) if (!this.statuses[pair]) this.statuses[pair] = 'Esperando WebSocket';
+    for (const pair of this.pairs) if (!this.statuses[pair]) this.statuses[pair] = 'Cargando';
     return { ...this.statuses };
   }
+
+  getRequiredPairs(): string[] { return [...this.pairs]; }
 
   private async rebuildClients(): Promise<void> {
     const keep = new Set(this.pairs);
@@ -236,12 +280,12 @@ export class NativeWsTriFeed implements TriFeed {
 
     let available: Set<string> | null = null;
     let endpointError: string | null = null;
-    if (this.exchange === 'binance') {
-      try {
-        available = await loadBinanceSpotSymbols();
-      } catch (err) {
-        endpointError = errorMessage(err);
-      }
+    try {
+      available = this.exchange === 'binance'
+        ? await loadBinanceSpotSymbols()
+        : await loadCcxtSpotSymbols(this.exchange);
+    } catch (err) {
+      endpointError = errorMessage(err);
     }
 
     for (const pair of this.pairs) {
@@ -257,7 +301,7 @@ export class NativeWsTriFeed implements TriFeed {
         continue;
       }
       if (!wsSupported(this.exchange)) {
-        this.statuses[pair] = 'Sin conector WebSocket';
+        this.statuses[pair] = 'Endpoint bloqueado: Sin conector WebSocket';
         this.logOnce(pair, this.statuses[pair]);
         continue;
       }
@@ -265,14 +309,16 @@ export class NativeWsTriFeed implements TriFeed {
         const client = createWsClient(this.exchange, pair, this.depth, () => {
           if (client.isReady()) {
             this.books[pair] = client.getOrderBook();
-            this.statuses[pair] = 'OK';
+            const b = this.books[pair];
+            this.statuses[pair] = b.bids[0] && b.asks[0] ? 'Listo' : 'Sin liquidez';
           }
         });
         this.clients.set(pair, client);
-        this.statuses[pair] = 'Esperando WebSocket';
+        this.startedAt[pair] = Date.now();
+        this.statuses[pair] = 'Cargando';
         await client.start();
       } catch (err) {
-        this.statuses[pair] = `Esperando WebSocket: ${errorMessage(err)}`;
+        this.statuses[pair] = `WebSocket pendiente: ${errorMessage(err)}`;
         this.logOnce(pair, this.statuses[pair]);
       }
     }
@@ -361,11 +407,12 @@ export class CcxtTriFeed implements TriFeed {
   }
   getPairStatuses(): Record<string, string> {
     for (const pair of this.pairs) {
-      if (this.books[pair]) this.statuses[pair] = 'OK';
-      else if (!this.statuses[pair]) this.statuses[pair] = 'Sin order book todavía';
+      if (this.books[pair]) this.statuses[pair] = this.books[pair].bids[0] && this.books[pair].asks[0] ? 'Listo' : 'Sin liquidez';
+      else if (!this.statuses[pair]) this.statuses[pair] = 'Cargando';
     }
     return { ...this.statuses };
   }
+  getRequiredPairs(): string[] { return [...this.pairs]; }
   private async pollOne(pair: string): Promise<void> {
     if (!this.client) return;
     try {
@@ -373,7 +420,7 @@ export class CcxtTriFeed implements TriFeed {
       const lv = (rows: [number, number][]): PriceLevel[] =>
         rows.filter(([p, a]) => p > 0 && a > 0).map(([p, a]) => ({ price: p, amount: a }));
       this.books[pair] = { exchange: this.exchange, symbol: pair, bids: lv(raw.bids), asks: lv(raw.asks), timestamp: raw.timestamp ?? Date.now() };
-      this.statuses[pair] = 'OK';
+      this.statuses[pair] = this.books[pair].bids[0] && this.books[pair].asks[0] ? 'Listo' : 'Sin liquidez';
       if (this.errored.has(pair)) { this.errored.delete(pair); }
     } catch (err) {
       if (!this.errored.has(pair)) {
