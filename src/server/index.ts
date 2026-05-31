@@ -21,7 +21,7 @@ import type { TriFeed } from '../exchanges/tri-source';
 import type { OrderBook, Opportunity } from '../domain/types';
 import { loadState, saveState, flushState } from './persistence';
 import { loadPrefs, savePrefs, type EnginePrefs } from './prefs';
-import { recommend, decideAutoSwitch, type StrategyStat } from '../engine/strategies';
+import { recommend, type StrategyStat } from '../engine/strategies';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PNL_HISTORY_MAX = 180;
@@ -105,11 +105,10 @@ async function main(): Promise<void> {
   engine.setRiskAppetite(prefs.riskAppetite);
 
   // --- Strategy advisor state ---
-  // 'cross' = cross-exchange (always available). 'triangular' only when enabled.
-  // 'auto' lets the advisor pick; we track the *effective* strategy separately.
-  let strategyMode = prefs.strategy || 'cross'; // 'cross' | 'triangular' | 'auto'
-  let effectiveStrategy = strategyMode === 'auto' ? 'cross' : strategyMode;
-  let lastStrategySwitchAt = 0;
+  // Only two manual modes are exposed: Cross-Exchange and Triangular.
+  // Older persisted 'auto' values are normalized back to Cross-Exchange.
+  let strategyMode = prefs.strategy === 'triangular' ? 'triangular' : 'cross';
+  let effectiveStrategy = strategyMode;
   const strategyEvents: { ts: number; from: string; to: string; reason: string }[] = [];
 
   const strategyStats = (): StrategyStat[] => {
@@ -171,7 +170,10 @@ async function main(): Promise<void> {
       minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
       coins: triCoins,
     });
-    if (mode === 'live' || mode === 'live-rest') {
+    if (mode === 'live') {
+      const { NativeWsTriFeed } = await import('../exchanges/tri-source');
+      triFeed = new NativeWsTriFeed(triExchange, triCoins, trading.orderBookDepth);
+    } else if (mode === 'live-rest') {
       const { CcxtTriFeed } = await import('../exchanges/tri-source');
       triFeed = new CcxtTriFeed(triExchange, triCoins, trading.pollIntervalMs, trading.orderBookDepth);
     } else {
@@ -184,7 +186,9 @@ async function main(): Promise<void> {
 
   await rebuildTriFeed();
   // Drive the triangular engine off its own clock, independent of the cross feed.
-  setInterval(() => { if (triFeed && triEngine) triEngine.tick(triFeed.getBooks()); }, mode === 'live' ? 250 : 200);
+  setInterval(() => {
+    if (triFeed && triEngine) triEngine.tick(triFeed.getBooks(), triFeed.getPairStatuses?.());
+  }, mode === 'live' ? 250 : 200);
 
   const pnlHistory: { t: number; pnl: number; value: number }[] = [];
   let latest: object | null = null;
@@ -280,23 +284,6 @@ async function main(): Promise<void> {
     }, tickIntervalMs);
   }
 
-  // Auto-switch: in 'auto' mode the advisor may change the active strategy when
-  // another is clearly outperforming (with cooldown + margin to avoid flapping).
-  // Each switch is recorded as an event the dashboard shows as an alert.
-  setInterval(() => {
-    if (strategyMode !== 'auto') return;
-    const now = Date.now();
-    const decision = decideAutoSwitch(strategyStats(), effectiveStrategy, lastStrategySwitchAt, now);
-    if (decision.switchTo && decision.switchTo !== effectiveStrategy) {
-      const from = effectiveStrategy;
-      effectiveStrategy = decision.switchTo;
-      lastStrategySwitchAt = now;
-      strategyEvents.push({ ts: now, from, to: effectiveStrategy, reason: decision.reason });
-      if (strategyEvents.length > 50) strategyEvents.shift();
-      console.log(`[strategy] auto-switch ${from} -> ${effectiveStrategy}: ${decision.reason}`);
-    }
-  }, 2000);
-
   // Sample P&L history on a steady clock (decoupled from tick rate).
   setInterval(() => {
     const s = engine.getStats();
@@ -374,13 +361,12 @@ async function main(): Promise<void> {
         savePrefs(prefs);
       } else if (cmd === 'strategy') {
         const v = (params.get('value') ?? '').toLowerCase();
-        const allowed = ['cross', 'triangular', 'auto']; // triangular always available
+        const allowed = ['cross', 'triangular']; // triangular always available
         if (allowed.includes(v)) {
           const from = effectiveStrategy;
           strategyMode = v;
-          effectiveStrategy = v === 'auto' ? effectiveStrategy : v;
-          if (v !== 'auto' && from !== effectiveStrategy) {
-            lastStrategySwitchAt = Date.now();
+          effectiveStrategy = v;
+          if (from !== effectiveStrategy) {
             strategyEvents.push({ ts: Date.now(), from, to: effectiveStrategy, reason: 'Cambio manual del usuario.' });
           }
           prefs.strategy = strategyMode;
