@@ -295,15 +295,15 @@
 
   /* triangular coin grid */
   .triflag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;border-radius:8px;padding:3px 9px;background:var(--teal-dim);color:var(--teal-2);}
-  .coingrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
-  .cointog{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;transition:.14s;user-select:none;background:var(--panel);}
+  .coingrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;}
+  .cointog{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:12px;padding:9px 10px;cursor:pointer;transition:.14s;user-select:none;background:var(--panel);min-width:0;}
   .cointog:hover{border-color:color-mix(in srgb,var(--teal) 28%,transparent);}
   .cointog.off{opacity:.5;}
   .cointog.locked{cursor:default;border-style:dashed;background:var(--panel-soft);}
-  .cointog .cn{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px;flex:none;background:linear-gradient(135deg,var(--teal),var(--blue));}
-  .cointog .cm{display:flex;flex-direction:column;line-height:1.15;}
-  .cointog .cm b{font-weight:800;font-size:13px;}
-  .cointog .cm span{font-size:10px;color:var(--dim);font-weight:600;}
+  .cointog .cn{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:10.5px;flex:none;background:linear-gradient(135deg,var(--teal),var(--blue));}
+  .cointog .cm{display:flex;flex-direction:column;line-height:1.15;min-width:0;}
+  .cointog .cm b{font-weight:800;font-size:13px;white-space:nowrap;}
+  .cointog .cm span{font-size:10px;color:var(--dim);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cointog .sw{margin-left:auto;width:38px;height:22px;border-radius:20px;background:var(--line);position:relative;transition:.18s;flex:none;}
   .cointog .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:.18s;}
   .cointog.on .sw{background:var(--teal);}
@@ -549,14 +549,14 @@ const SK_RESUMEN = `
 
   <div class="card pad">
     <div class="ovl">Order book · <span id="obSym">BTC/USDT</span></div>
-    <div class="sechead" style="margin-top:3px"><div><div class="h">Precio BTC por exchange</div></div><div class="muted">Bid/ask y spread normalizados para detectar diferencias accionables.</div></div>
+    <div class="sechead" style="margin-top:3px"><div><div class="h" id="bookTitle">Precio BTC por exchange</div></div><div class="muted" id="bookHelp">Bid/ask y spread normalizados para detectar diferencias accionables.</div></div>
     <div class="exrow" id="exrow"></div>
   </div>
 
   <div class="cmpwrap">
     <div class="card pad">
       <div class="sechead">
-        <div><div class="h">Comparativa BTC entre exchanges</div></div>
+        <div><div class="h" id="cmpTitle">Comparativa BTC entre exchanges</div></div>
         <div style="display:flex;gap:10px;align-items:center">
           <select id="cmpSym"><option>BTC/USDT</option></select>
           <div class="tabs" id="tfTabs">
@@ -570,7 +570,7 @@ const SK_RESUMEN = `
     </div>
     <div class="card pad">
       <div class="sechead"><div><div class="ovl">Scanner</div><div class="h">Oportunidades detectadas</div></div><a class="btnlink" data-goto="oportunidades">Ver todas →</a></div>
-      <table><thead><tr><th>Comprar en</th><th>Vender en</th><th class="r">Spread</th><th class="r">Volumen</th><th class="r">Estado</th></tr></thead><tbody id="scanBody"></tbody></table>
+      <table><thead id="scanHead"><tr><th>Comprar en</th><th>Vender en</th><th class="r">Spread</th><th class="r">Volumen</th><th class="r">Estado</th></tr></thead><tbody id="scanBody"></tbody></table>
     </div>
   </div>
 
@@ -629,8 +629,8 @@ function kpi(label, id, sub, icon, subId) {
   return `<div class="card kpi"><div class="row"><div class="k">${label}</div><div class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></div></div><div class="v num" id="${id}">—</div><div class="s"><span id="${subId || id + "Sub"}"></span> ${sub}</div></div>`;
 }
 
-const SK_OPPS = `<div class="card pad"><div class="sechead"><div><div class="ovl">Scanner</div><div class="h">Todas las oportunidades</div></div><div class="muted">Pares evaluados contra fees y profundidad real del libro.</div></div>
-  <table><thead><tr><th>Comprar en</th><th>Vender en</th><th class="r">Buy</th><th class="r">Sell</th><th class="r">Volumen</th><th class="r">Spread bruto</th><th class="r">Neto</th><th class="r">Exposición</th><th class="r">P&L</th><th class="r">Estado</th></tr></thead><tbody id="oppFull"></tbody></table></div>`;
+const SK_OPPS = `<div class="card pad"><div class="sechead"><div><div class="ovl">Scanner</div><div class="h" id="oppTitle">Todas las oportunidades</div></div><div class="muted" id="oppHelp">Pares evaluados contra fees y profundidad real del libro.</div></div>
+  <table><thead id="oppHead"><tr><th>Comprar en</th><th>Vender en</th><th class="r">Buy</th><th class="r">Sell</th><th class="r">Volumen</th><th class="r">Spread bruto</th><th class="r">Neto</th><th class="r">Exposición</th><th class="r">P&L</th><th class="r">Estado</th></tr></thead><tbody id="oppFull"></tbody></table></div>`;
 
 const SK_OPS = `<div class="card pad"><div class="sechead"><div><div class="ovl">Execution log</div><div class="h">Historial de operaciones</div></div><div class="muted" id="opsCount">0 ejecuciones</div></div>
   <table><thead><tr><th>Hora</th><th>Comprar</th><th>Vender</th><th class="r">Volumen</th><th class="r">Fee</th><th class="r">Slippage</th><th class="r">P&L neto</th><th class="r">Estado</th></tr></thead><tbody id="opsFull"></tbody></table></div>`;
@@ -699,7 +699,7 @@ const SK_RIESGO = `
 const SK_STRAT = `
   <div class="card pad">
     <div class="sechead"><div><div class="ovl">Motor de estrategia</div><div class="h">Selección de estrategia</div></div></div>
-    <div class="muted" style="margin-bottom:12px">Elige la estrategia activa, o deja que el bot la elija solo (Auto): cambiará a la que esté rindiendo mejor y te avisará con una alerta. La elección se guarda en el servidor.</div>
+    <div class="muted" style="margin-bottom:12px">Elige la estrategia activa. Cross-Exchange compara venues; Triangular opera rutas dentro de un único exchange seleccionado. La elección se guarda en el servidor.</div>
     <div class="seg" id="stratSeg"></div>
     <div id="stratAutoNote" style="margin-top:12px"></div>
   </div>
@@ -800,6 +800,22 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+function triCandidates(s) {
+  return ((s.triangular && s.triangular.candidates) || []);
+}
+function triExecutableCount(s) { return triCandidates(s).filter((c) => c.executable).length; }
+function statusBadge(status, executable) {
+  if (executable) return `<span class="stbadge st-exec">Ejecutable</span>`;
+  const ghost = status === "Sin pares suficientes" || status === "Sin profundidad suficiente";
+  return `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${esc(status || "En espera")}</span>`;
+}
+function triScannerRows(s, limit) {
+  const rows = triCandidates(s).slice(0, limit || 999).map((c) => {
+    const miss = c.missingPairs && c.missingPairs.length ? `<br><span class="muted" style="font-size:10.5px">Faltan: ${esc(c.missingPairs.join(", "))}</span>` : "";
+    return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
+  }).join("");
+  return rows || `<tr><td colspan="5" class="empty">Sin rutas candidatas todavía. Revisa pares COIN/BTC y COIN/USDT para el exchange seleccionado.</td></tr>`;
+}
 function renderTop(s) {
   const connected = !!es && es.readyState === 1;
   $("engineDot").className = "dot " + (s.paused ? "off" : "live");
@@ -811,7 +827,7 @@ function renderTop(s) {
   const baseVal = (s.portfolio ? s.portfolio.totalBase : 0) * (s.markPrice || 0);
   const usePct = cap ? Math.min(100, (baseVal / cap) * 100) : 0;
   $("stratName").textContent = s.strategy
-    ? (s.strategy.mode === "auto" ? "Auto · " + ((STRAT_LABELS[s.strategy.effective] || s.strategy.effective)) : (STRAT_LABELS[s.strategy.effective] || "Cross-Exchange"))
+    ? (isTriActive(s) ? `Triangular · ${exMeta((s.triangular || {}).exchange || "").n}` : (STRAT_LABELS[s.strategy.effective] || "Cross-Exchange"))
     : "Cross-Exchange BTC";
   $("stratCap").textContent = usdc(cap);
   $("stratUsePct").textContent = usePct.toFixed(1) + "%";
@@ -821,7 +837,7 @@ function renderTop(s) {
   $("pauseIcon").textContent = s.paused ? "▶" : "❚❚";
   $("pauseLbl").textContent = s.paused ? "Reanudar motor" : "Pausar motor";
   // nav badges
-  const oppExec = (s.opportunities || []).filter((o) => o.executable).length;
+  const oppExec = isTriActive(s) ? triExecutableCount(s) : (s.opportunities || []).filter((o) => o.executable).length;
   setText("navOppBadge", oppExec);
   const alerts = computeAlerts(s);
   setText("navAlertBadge", alerts.length);
@@ -875,40 +891,55 @@ function renderResumen(s) {
   const baseVal = (s.portfolio ? s.portfolio.totalBase : 0) * (s.markPrice || 0);
   const usePct = s.portfolio && s.portfolio.totalValueQuote ? (baseVal / s.portfolio.totalValueQuote) * 100 : 0;
   setText("kPortSub", usePct.toFixed(1) + "%");
-  const execNow = (s.opportunities || []).filter((o) => o.executable).length;
-  setText("kOpp", (s.opportunities || []).length);
+  const tri = isTriActive(s);
+  const execNow = tri ? triExecutableCount(s) : (s.opportunities || []).filter((o) => o.executable).length;
+  setText("kOpp", tri ? triCandidates(s).length : (s.opportunities || []).length);
   setText("kOppSub", execNow);
   setText("kOps", st.tradesExecuted || 0);
-  const activeN = (s.activeExchanges || s.exchanges || s.books || []).length;
+  const activeN = tri ? 1 : (s.activeExchanges || s.exchanges || s.books || []).length;
   setText("kEx", activeN);
-  setText("kExSub", "de " + ((s.exchanges || []).length || (s.books || []).length) + " conectados");
+  setText("kExSub", tri ? `Triangular · ${exMeta((s.triangular || {}).exchange || "").n}` : "de " + ((s.exchanges || []).length || (s.books || []).length) + " conectados");
   setText("kVol", (((s.latency || {}).volatilityPctPerSec || 0) * 100).toFixed(3) + "%");
   $("kRisk").textContent = riskLvl; $("kRisk").className = "v " + (riskLvl === "Bajo" ? "pos" : riskLvl === "Alto" ? "neg" : "");
 
   setText("heroLat", (s.bookAgeMs || 0) + " ms");
 
   // Triangular summary card (only when triangular is the active strategy).
-  renderTriResume(s, isTriActive(s));
+  renderTriResume(s, tri);
+  setText("bookTitle", tri ? `Triangular · ${exMeta((s.triangular || {}).exchange || "").n}` : "Precio BTC por exchange");
+  setText("bookHelp", tri ? "Solo el exchange seleccionado participa visualmente y en las rutas de triangulación." : "Bid/ask y spread normalizados para detectar diferencias accionables.");
+  setText("cmpTitle", tri ? "Rutas/monedas de triangulación" : "Comparativa BTC entre exchanges");
 
   // Active-exchange filter: hide deactivated venues from the dashboard so they
   // don't confuse the read (they keep streaming server-side, just not shown).
   const actSet = activeSet(s);
-  const shownBooks = (s.books || []).filter((b) => actSet(b.exchange));
+  const shownBooks = (s.books || []).filter((b) => tri ? (s.triangular && b.exchange === s.triangular.exchange) : actSet(b.exchange));
 
   // exchange cards (only active)
-  $("exrow").innerHTML = shownBooks.map((b) => exchangeCard(b, s.markPrice)).join("") || `<div class="empty">No hay exchanges activos. Actívalos en la pestaña Exchanges.</div>`;
+  $("exrow").innerHTML = shownBooks.map((b) => exchangeCard(b, s.markPrice)).join("") || `<div class="empty">${tri ? "Esperando libro BTC/USDT del exchange triangular seleccionado." : "No hay exchanges activos. Actívalos en la pestaña Exchanges."}</div>`;
 
   // comparison chart + legend (only active)
-  drawCmp($("cmpChart"), actSet);
-  $("cmpLegend").innerHTML = Object.keys(PRICE).filter(actSet).map((ex) => `<span><i style="background:${exMeta(ex).c}"></i>${exMeta(ex).n}</span>`).join("");
+  if (tri) {
+    drawTriChart($("cmpChart"), triCandidates(s));
+    $("cmpLegend").innerHTML = `<span><i style="background:var(--teal)"></i>Profit ruta</span><span><i style="background:var(--amber)"></i>Fees estimadas</span><span class="triflag">Triangular · ${esc(exMeta((s.triangular || {}).exchange || "").n)}</span>`;
+  } else {
+    drawCmp($("cmpChart"), actSet);
+    $("cmpLegend").innerHTML = Object.keys(PRICE).filter(actSet).map((ex) => `<span><i style="background:${exMeta(ex).c}"></i>${exMeta(ex).n}</span>`).join("");
+  }
 
-  // scanner (only opportunities whose both legs are active)
-  $("scanBody").innerHTML = (s.opportunities || []).filter((o) => actSet(o.buyExchange) && actSet(o.sellExchange)).slice(0, 5).map((o) => {
-    const ghost = o.rejectReason === "latency_risk";
-    const stt = o.executable ? `<span class="stbadge st-exec">Ejecutable</span>` : `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${REASONS[o.rejectReason] || "Rechazada"}</span>`;
-    const vol = o.amount ? (o.buyPrice * o.amount) : 0;
-    return `<tr><td>${exTag(o.buyExchange)}</td><td>${exTag(o.sellExchange)}</td><td class="r num ${cls(o.grossSpreadPct)}">${pct(o.grossSpreadPct)}</td><td class="r num">${usdc(vol)}</td><td class="r">${stt}</td></tr>`;
-  }).join("") || `<tr><td colspan="5" class="empty">Escaneando…</td></tr>`;
+  // scanner: Cross-Exchange and Triangular never share table semantics.
+  if (tri) {
+    $("scanHead").innerHTML = `<tr><th>Moneda puente</th><th>Ruta</th><th class="r">Profit %</th><th class="r">Fees</th><th class="r">Estado</th></tr>`;
+    $("scanBody").innerHTML = triScannerRows(s, 5);
+  } else {
+    $("scanHead").innerHTML = `<tr><th>Comprar en</th><th>Vender en</th><th class="r">Spread</th><th class="r">Volumen</th><th class="r">Estado</th></tr>`;
+    $("scanBody").innerHTML = (s.opportunities || []).filter((o) => actSet(o.buyExchange) && actSet(o.sellExchange)).slice(0, 5).map((o) => {
+      const ghost = o.rejectReason === "latency_risk";
+      const stt = o.executable ? `<span class="stbadge st-exec">Ejecutable</span>` : `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${REASONS[o.rejectReason] || "Rechazada"}</span>`;
+      const vol = o.amount ? (o.buyPrice * o.amount) : 0;
+      return `<tr><td>${exTag(o.buyExchange)}</td><td>${exTag(o.sellExchange)}</td><td class="r num ${cls(o.grossSpreadPct)}">${pct(o.grossSpreadPct)}</td><td class="r num">${usdc(vol)}</td><td class="r">${stt}</td></tr>`;
+    }).join("") || `<tr><td colspan="5" class="empty">Escaneando…</td></tr>`;
+  }
 
   // execution log
   $("logBody").innerHTML = (s.trades || []).slice(0, 8).map(tradeRow).join("") || `<tr><td colspan="8" class="empty">Esperando ejecuciones vivas desde /stream.</td></tr>`;
@@ -988,6 +1019,20 @@ function renderHealth(s) {
 
 /* ===== OPORTUNIDADES ===== */
 function renderOppsView(s) {
+  const tri = isTriActive(s);
+  if (tri) {
+    setText("oppTitle", `Oportunidades triangulares · ${exMeta((s.triangular || {}).exchange || "").n}`);
+    setText("oppHelp", "Rutas dentro de un solo exchange: moneda puente, ruta, profit neto, fees y estado.");
+    $("oppHead").innerHTML = `<tr><th>Moneda puente</th><th>Ruta</th><th>Exchange</th><th class="r">Profit estimado</th><th class="r">Profit %</th><th class="r">Fees</th><th class="r">Estado</th></tr>`;
+    $("oppFull").innerHTML = triCandidates(s).map((c) => {
+      const miss = c.missingPairs && c.missingPairs.length ? `<br><span class="muted" style="font-size:10.5px">Faltan: ${esc(c.missingPairs.join(", "))}</span>` : "";
+      return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td>${exTag((s.triangular || {}).exchange || "")}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
+    }).join("") || `<tr><td colspan="7" class="empty">Sin rutas candidatas todavía. Activa monedas o revisa pares disponibles en el exchange seleccionado.</td></tr>`;
+    return;
+  }
+  setText("oppTitle", "Todas las oportunidades Cross-Exchange");
+  setText("oppHelp", "Comprar en exchange A y vender en exchange B, evaluado contra fees, latencia y profundidad real del libro.");
+  $("oppHead").innerHTML = `<tr><th>Comprar en</th><th>Vender en</th><th class="r">Buy</th><th class="r">Sell</th><th class="r">Volumen</th><th class="r">Spread bruto</th><th class="r">Neto</th><th class="r">Exposición</th><th class="r">P&L</th><th class="r">Estado</th></tr>`;
   const actSet = activeSet(s);
   $("oppFull").innerHTML = (s.opportunities || []).filter((o) => actSet(o.buyExchange) && actSet(o.sellExchange)).map((o) => {
     const ghost = o.rejectReason === "latency_risk";
@@ -998,7 +1043,7 @@ function renderOppsView(s) {
       ? `<span class="num" title="pata más lenta + latencia ejec.">${o.exposureMs.toFixed(0)} ms</span>${ghost ? `<br><span class="num neg" style="font-size:10.5px">−${usd(o.latencyRiskCost || 0)}</span>` : ""}`
       : "—";
     return `<tr><td>${exTag(o.buyExchange)}</td><td>${exTag(o.sellExchange)}</td><td class="r num">${usd(o.buyPrice)}</td><td class="r num">${usd(o.sellPrice)}</td><td class="r num">${usdc(vol)}</td><td class="r num ${cls(o.grossSpreadPct)}">${pct(o.grossSpreadPct)}</td><td class="r num ${cls(o.netProfitPct)}">${pct(o.netProfitPct)}</td><td class="r">${exp}</td><td class="r">${pnl}</td><td class="r">${stt}</td></tr>`;
-  }).join("") || `<tr><td colspan="10" class="empty">Escaneando oportunidades…</td></tr>`;
+  }).join("") || `<tr><td colspan="10" class="empty">Escaneando oportunidades Cross-Exchange…</td></tr>`;
 }
 
 /* ===== OPERACIONES ===== */
@@ -1271,12 +1316,12 @@ function wireRiskAppetite() {
 }
 
 /* ===== ESTRATEGIAS ===== */
-const STRAT_LABELS = { cross: "Cross-Exchange", triangular: "Triangular", auto: "Auto (bot decide)" };
-const STRAT_DESC = { cross: "Compra y vende el mismo activo entre dos exchanges.", triangular: "Aprovecha el desajuste entre tres pares dentro de un exchange.", auto: "El bot cambia solo a la estrategia que mejor rinde." };
+const STRAT_LABELS = { cross: "Cross-Exchange", triangular: "Triangular" };
+const STRAT_DESC = { cross: "Compra y vende el mismo activo entre dos exchanges.", triangular: "Aprovecha el desajuste entre tres pares dentro de un exchange." };
 let _stratWired = false;
 function renderStratView(s) {
   const strat = s.strategy || { mode: "cross", effective: "cross", available: ["cross"], recommendation: { scores: [] }, events: [] };
-  const avail = (strat.available || ["cross"]).concat("auto");
+  const avail = (strat.available || ["cross", "triangular"]).filter((id) => id !== "auto");
   const seg = $("stratSeg");
   // build selector once
   if (!_stratWired && seg) {
@@ -1287,15 +1332,8 @@ function renderStratView(s) {
   }
   if (seg) seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.s === strat.mode));
 
-  // auto note
   const note = $("stratAutoNote");
-  if (note) {
-    if (strat.mode === "auto") {
-      note.innerHTML = `<div class="rsoft"><div class="k">Modo automático activo</div><div class="v" style="font-size:14px">Operando ahora con: <b>${STRAT_LABELS[strat.effective] || strat.effective}</b></div><div class="muted" style="margin-top:4px">${STRAT_DESC[strat.effective] || ""}</div></div>`;
-    } else {
-      note.innerHTML = `<div class="muted">${STRAT_DESC[strat.mode] || ""}</div>`;
-    }
-  }
+  if (note) note.innerHTML = `<div class="muted">${STRAT_DESC[strat.mode] || ""}</div>`;
 
   // recommendation
   const reco = strat.recommendation || { scores: [] };
@@ -1357,9 +1395,9 @@ function renderTriPanel(s, show) {
   // Candidate routes table (per active coin).
   const cands = (t.candidates || []);
   const candRows = cands.map((c) => {
-    const st = c.executable ? `<span class="stbadge st-exec">Ejecutable</span>` : `<span class="stbadge st-rej">En espera</span>`;
-    return `<tr><td><b>${esc(c.coin)}</b></td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r">${st}</td></tr>`;
-  }).join("") || `<tr><td colspan="5" class="empty">Aún sin rutas priceables. Verifica que el exchange tenga los pares COIN/BTC y COIN/USDT.</td></tr>`;
+    const miss = c.missingPairs && c.missingPairs.length ? `<br><span class="muted" style="font-size:10.5px">Faltan: ${esc(c.missingPairs.join(", "))}</span>` : "";
+    return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty">Aún sin rutas priceables. Verifica que el exchange tenga los pares COIN/BTC y COIN/USDT.</td></tr>`;
 
   $("triPanelBody").innerHTML = `
     ${banner}
@@ -1374,7 +1412,7 @@ function renderTriPanel(s, show) {
       <div class="tricell"><div class="k">Costo fees (3 patas)</div><div class="v num">${feeCost}</div></div>
     </div>
     <div style="margin-top:18px"><div class="h" style="font-size:14px">Rutas candidatas por moneda</div>
-      <table style="margin-top:8px"><thead><tr><th>Moneda</th><th>Ruta</th><th class="r">Profit</th><th class="r">%</th><th class="r">Estado</th></tr></thead><tbody>${candRows}</tbody></table>
+      <table style="margin-top:8px"><thead><tr><th>Moneda puente</th><th>Ruta</th><th class="r">Profit estimado</th><th class="r">Profit %</th><th class="r">Fees</th><th class="r">Estado</th></tr></thead><tbody>${candRows}</tbody></table>
     </div>`;
 }
 const s2cache = {};
@@ -1497,6 +1535,34 @@ function drawCmp(c, filter) {
   ctx.strokeStyle = css.getPropertyValue("--line-soft").trim(); ctx.fillStyle = css.getPropertyValue("--dim").trim(); ctx.font = "10px Manrope"; ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) { const v = lo + (hi - lo) * (i / 4); const yy = y(v); ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke(); ctx.fillText("$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }), 6, yy + 3); }
   series.forEach(([ex, a]) => { ctx.beginPath(); a.forEach((p, i) => (i ? ctx.lineTo(x(p.t), y(p.mid)) : ctx.moveTo(x(p.t), y(p.mid)))); ctx.strokeStyle = exMeta(ex).c; ctx.lineWidth = 1.8; ctx.lineJoin = "round"; ctx.stroke(); });
+}
+function drawTriChart(c, candidates) {
+  if (!c) return; const { ctx, w, h } = fit(c); ctx.clearRect(0, 0, w, h);
+  const rows = (candidates || []).slice(0, 8);
+  const css = getComputedStyle(document.documentElement);
+  const dim = css.getPropertyValue("--dim").trim();
+  if (!rows.length) { ctx.fillStyle = dim; ctx.font = "12px Manrope"; ctx.fillText("Recolectando rutas triangulares…", 12, h / 2); return; }
+  const teal = css.getPropertyValue("--teal").trim() || "#19c7b7";
+  const amber = css.getPropertyValue("--amber").trim() || "#f3a533";
+  const line = css.getPropertyValue("--line-soft").trim();
+  const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(r.netProfit || 0)), ...rows.map((r) => Math.abs(r.feeCostUSDT || 0)));
+  const padL = 58, padR = 18, padT = 14, padB = 28;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  ctx.strokeStyle = line; ctx.fillStyle = dim; ctx.font = "10px Manrope"; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) { const yy = padT + (plotH * i / 4); ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke(); }
+  const barSlot = plotW / rows.length;
+  rows.forEach((r, i) => {
+    const x = padL + i * barSlot + barSlot * 0.18;
+    const bw = Math.max(8, barSlot * 0.28);
+    const pH = Math.min(plotH, Math.abs(r.netProfit || 0) / maxAbs * plotH);
+    const fH = Math.min(plotH, Math.abs(r.feeCostUSDT || 0) / maxAbs * plotH);
+    ctx.fillStyle = (r.netProfit || 0) >= 0 ? teal : css.getPropertyValue("--red").trim();
+    ctx.fillRect(x, padT + plotH - pH, bw, pH);
+    ctx.fillStyle = amber;
+    ctx.fillRect(x + bw + 4, padT + plotH - fH, bw, fH);
+    ctx.save(); ctx.translate(x, h - 8); ctx.rotate(-0.45); ctx.fillStyle = dim; ctx.fillText(r.coin || "—", 0, 0); ctx.restore();
+  });
+  ctx.fillStyle = dim; ctx.font = "11px Manrope"; ctx.fillText("Profit / fees por ruta", 8, 14);
 }
 function drawDonut(c, items) {
   if (!c) return; const ctx = c.getContext("2d"); const W = 190, H = 190; const dpr = window.devicePixelRatio || 1;
