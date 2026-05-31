@@ -19,7 +19,7 @@ import { GateWsClient } from './gate-ws';
 import { BitfinexWsClient } from './bitfinex-ws';
 import { KucoinWsClient } from './kucoin-ws';
 
-interface WsClient {
+export interface WsClient {
   readonly id: string;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -44,6 +44,13 @@ const WS_CLIENTS: Record<string, WsCtor> = {
 /** Exchanges that have a native WebSocket connector here. */
 export function wsSupported(id: string): boolean {
   return id in WS_CLIENTS;
+}
+
+/** Build one native WebSocket order-book client for a single spot symbol. */
+export function createWsClient(id: string, symbol: string, depth: number, onUpdate: () => void): WsClient {
+  const Ctor = WS_CLIENTS[id];
+  if (!Ctor) throw new Error(`No WebSocket client implemented for "${id}"`);
+  return new Ctor(symbol, depth, onUpdate);
 }
 
 export class WebSocketSource extends EventEmitter implements MarketDataSource {

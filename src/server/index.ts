@@ -170,7 +170,10 @@ async function main(): Promise<void> {
       minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
       coins: triCoins,
     });
-    if (mode === 'live' || mode === 'live-rest') {
+    if (mode === 'live') {
+      const { NativeWsTriFeed } = await import('../exchanges/tri-source');
+      triFeed = new NativeWsTriFeed(triExchange, triCoins, trading.orderBookDepth);
+    } else if (mode === 'live-rest') {
       const { CcxtTriFeed } = await import('../exchanges/tri-source');
       triFeed = new CcxtTriFeed(triExchange, triCoins, trading.pollIntervalMs, trading.orderBookDepth);
     } else {
@@ -183,7 +186,9 @@ async function main(): Promise<void> {
 
   await rebuildTriFeed();
   // Drive the triangular engine off its own clock, independent of the cross feed.
-  setInterval(() => { if (triFeed && triEngine) triEngine.tick(triFeed.getBooks()); }, mode === 'live' ? 250 : 200);
+  setInterval(() => {
+    if (triFeed && triEngine) triEngine.tick(triFeed.getBooks(), triFeed.getPairStatuses?.());
+  }, mode === 'live' ? 250 : 200);
 
   const pnlHistory: { t: number; pnl: number; value: number }[] = [];
   let latest: object | null = null;

@@ -806,12 +806,13 @@ function triCandidates(s) {
 function triExecutableCount(s) { return triCandidates(s).filter((c) => c.executable).length; }
 function statusBadge(status, executable) {
   if (executable) return `<span class="stbadge st-exec">Ejecutable</span>`;
-  const ghost = status === "Sin pares suficientes" || status === "Sin profundidad suficiente";
+  const ghost = ["Sin pares suficientes", "Sin profundidad suficiente", "Endpoint bloqueado", "Par no disponible", "Sin order book todavía", "Esperando WebSocket"].includes(status);
   return `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${esc(status || "En espera")}</span>`;
 }
 function triScannerRows(s, limit) {
   const rows = triCandidates(s).slice(0, limit || 999).map((c) => {
-    const miss = c.missingPairs && c.missingPairs.length ? `<br><span class="muted" style="font-size:10.5px">Faltan: ${esc(c.missingPairs.join(", "))}</span>` : "";
+    const detail = c.reasons && c.reasons.length ? c.reasons : (c.missingPairs || []).map((p) => `${p}: Sin order book todavía`);
+    const miss = detail.length ? `<br><span class="muted" style="font-size:10.5px">${esc(detail.join(" · "))}</span>` : "";
     return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
   }).join("");
   return rows || `<tr><td colspan="5" class="empty">Sin rutas candidatas todavía. Revisa pares COIN/BTC y COIN/USDT para el exchange seleccionado.</td></tr>`;
@@ -1025,7 +1026,8 @@ function renderOppsView(s) {
     setText("oppHelp", "Rutas dentro de un solo exchange: moneda puente, ruta, profit neto, fees y estado.");
     $("oppHead").innerHTML = `<tr><th>Moneda puente</th><th>Ruta</th><th>Exchange</th><th class="r">Profit estimado</th><th class="r">Profit %</th><th class="r">Fees</th><th class="r">Estado</th></tr>`;
     $("oppFull").innerHTML = triCandidates(s).map((c) => {
-      const miss = c.missingPairs && c.missingPairs.length ? `<br><span class="muted" style="font-size:10.5px">Faltan: ${esc(c.missingPairs.join(", "))}</span>` : "";
+      const detail = c.reasons && c.reasons.length ? c.reasons : (c.missingPairs || []).map((p) => `${p}: Sin order book todavía`);
+      const miss = detail.length ? `<br><span class="muted" style="font-size:10.5px">${esc(detail.join(" · "))}</span>` : "";
       return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td>${exTag((s.triangular || {}).exchange || "")}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
     }).join("") || `<tr><td colspan="7" class="empty">Sin rutas candidatas todavía. Activa monedas o revisa pares disponibles en el exchange seleccionado.</td></tr>`;
     return;
@@ -1395,7 +1397,8 @@ function renderTriPanel(s, show) {
   // Candidate routes table (per active coin).
   const cands = (t.candidates || []);
   const candRows = cands.map((c) => {
-    const miss = c.missingPairs && c.missingPairs.length ? `<br><span class="muted" style="font-size:10.5px">Faltan: ${esc(c.missingPairs.join(", "))}</span>` : "";
+    const detail = c.reasons && c.reasons.length ? c.reasons : (c.missingPairs || []).map((p) => `${p}: Sin order book todavía`);
+    const miss = detail.length ? `<br><span class="muted" style="font-size:10.5px">${esc(detail.join(" · "))}</span>` : "";
     return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
   }).join("") || `<tr><td colspan="6" class="empty">Aún sin rutas priceables. Verifica que el exchange tenga los pares COIN/BTC y COIN/USDT.</td></tr>`;
 

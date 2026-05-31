@@ -55,7 +55,7 @@ export interface TriangularOpportunity {
   /** Taker fee fraction used for this loop (0.001 = 0.1%). */
   takerFee: number;
   executable: boolean;
-  status?: 'Ejecutable' | 'En espera' | 'Sin pares suficientes' | 'Sin profundidad suficiente';
+  status?: TriStatus;
 }
 
 export interface TriangularTrade {
@@ -81,7 +81,15 @@ export interface TriParams {
   minNetPct: number;
 }
 
-type TriStatus = 'Ejecutable' | 'En espera' | 'Sin pares suficientes' | 'Sin profundidad suficiente';
+type TriStatus =
+  | 'Ejecutable'
+  | 'En espera'
+  | 'Sin pares suficientes'
+  | 'Sin profundidad suficiente'
+  | 'Endpoint bloqueado'
+  | 'Par no disponible'
+  | 'Sin order book todavía'
+  | 'Esperando WebSocket';
 
 interface ConversionResult {
   out: number;
@@ -270,6 +278,21 @@ export interface TriangularMultiResult {
   candidates: TriCandidateView[];
 }
 
+
+function statusFromPairStatuses(missingPairs: string[], pairStatuses?: Record<string, string>): { status: TriStatus; reasons: string[] } {
+  const reasons = missingPairs.map((pair) => `${pair}: ${pairStatuses?.[pair] ?? 'Sin order book todavía'}`);
+  const text = reasons.join(' | ').toLowerCase();
+  if (text.includes('endpoint bloqueado') || text.includes('451') || text.includes('restricted') || text.includes('blocked')) {
+    return { status: 'Endpoint bloqueado', reasons };
+  }
+  if (text.includes('par no disponible') || text.includes('symbol') || text.includes('market')) {
+    return { status: 'Par no disponible', reasons };
+  }
+  if (text.includes('esperando websocket')) return { status: 'Esperando WebSocket', reasons };
+  if (text.includes('sin order book')) return { status: 'Sin order book todavía', reasons };
+  return { status: 'Sin pares suficientes', reasons };
+}
+
 /**
  * Evaluate every candidate coin and return the global best plus the per-coin
  * breakdown (used by the dashboard to show all candidate routes). Coins without
@@ -280,6 +303,7 @@ export function detectTriangularMulti(
   books: Record<string, OrderBook>,
   params: TriParams,
   coins: readonly string[],
+  pairStatuses?: Record<string, string>,
 ): TriangularMultiResult {
   const perCoin: TriangularOpportunity[] = [];
   const candidates: TriCandidateView[] = [];
@@ -287,6 +311,7 @@ export function detectTriangularMulti(
     if (coin === 'BTC' || coin === 'USDT') continue; // base coins are anchors, not candidates
     const missingPairs = requiredPairsFor(coin).filter((pair) => !books[pair] || !books[pair].bids[0] || !books[pair].asks[0]);
     if (missingPairs.length) {
+      const { status, reasons } = statusFromPairStatuses(missingPairs, pairStatuses);
       candidates.push({
         coin,
         path: `USDT→BTC→${coin}→USDT`,
@@ -295,8 +320,9 @@ export function detectTriangularMulti(
         netProfitPct: 0,
         feeCostUSDT: 0,
         executable: false,
-        status: 'Sin pares suficientes',
+        status,
         missingPairs,
+        reasons,
       });
       continue;
     }
@@ -318,8 +344,9 @@ export function detectTriangularMulti(
   perCoin.sort((x, y) => y.netProfit - x.netProfit);
   candidates.sort((x, y) => {
     if (x.status !== y.status) {
-      if (x.status === 'Sin pares suficientes') return 1;
-      if (y.status === 'Sin pares suficientes') return -1;
+      const low = new Set<TriStatus>(['Sin pares suficientes', 'Endpoint bloqueado', 'Par no disponible', 'Sin order book todavía', 'Esperando WebSocket']);
+      if (low.has(x.status)) return 1;
+      if (low.has(y.status)) return -1;
     }
     return y.netProfit - x.netProfit;
   });
@@ -337,6 +364,7 @@ export interface TriCandidateView {
   executable: boolean;
   status: TriStatus;
   missingPairs?: string[];
+  reasons?: string[];
 }
 
 /** Simulated triangular engine: detects across active coins, executes, tracks P&L. */
@@ -375,8 +403,8 @@ export class TriangularEngine {
     return this.params.exchange;
   }
 
-  tick(books: Record<string, OrderBook>): void {
-    const { best, candidates } = detectTriangularMulti(books, this.params, this.coins);
+  tick(books: Record<string, OrderBook>, pairStatuses?: Record<string, string>): void {
+    const { best, candidates } = detectTriangularMulti(books, this.params, this.coins, pairStatuses);
     this.lastOpp = best;
     this.lastPerCoin = candidates;
     if (!best) return;
@@ -426,7 +454,7 @@ export class TriangularEngine {
       candidates: this.lastPerCoin.map((o) => ({
         coin: o.coin, path: o.path, direction: o.direction,
         netProfit: o.netProfit, netProfitPct: o.netProfitPct, feeCostUSDT: o.feeCostUSDT,
-        executable: o.executable, status: o.status, missingPairs: o.missingPairs,
+        executable: o.executable, status: o.status, missingPairs: o.missingPairs, reasons: o.reasons,
       })),
       feeCostUSDT: this.lastOpp ? this.lastOpp.feeCostUSDT : 0,
       takerFee: this.params.takerFee,
