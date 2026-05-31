@@ -40,6 +40,11 @@ export class RiskManager {
     return { ...this.state };
   }
 
+  /** Apply updated circuit-breaker thresholds without resetting live breaker state. */
+  setConfig(cfg: RiskConfig): void {
+    this.cfg = cfg;
+  }
+
   /**
    * Whether trading is currently allowed. If the breaker was active but the
    * cooldown has elapsed, it auto-resets here and trading resumes.

@@ -469,6 +469,10 @@ export class TriangularEngine {
     }
   }
 
+  getTrades(): TriangularTrade[] {
+    return [...this.trades];
+  }
+
   getState(): {
     enabled: true;
     exchange: string;

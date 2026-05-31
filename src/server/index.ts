@@ -19,7 +19,7 @@ import { SimulatedSource, type MarketDataSource } from '../exchanges/source';
 import { TriangularEngine, DEFAULT_TRI_COINS, DEFAULT_TRI_COINS_ACTIVE } from '../exchanges/triangular';
 import type { TriFeed } from '../exchanges/tri-source';
 import type { OrderBook, Opportunity } from '../domain/types';
-import { loadState, saveState, flushState } from './persistence';
+import { loadState, saveState, flushState, type PersistedState, type PersistedMode, type PersistedStrategy } from './persistence';
 import { loadPrefs, savePrefs, type EnginePrefs } from './prefs';
 import { recommend, type StrategyStat } from '../engine/strategies';
 
@@ -29,6 +29,87 @@ const TRIANGULAR_SUPPORTED_EXCHANGES = ['binance', 'kraken', 'coinbase'] as cons
 const TRIANGULAR_SUPPORTED_SET = new Set<string>(TRIANGULAR_SUPPORTED_EXCHANGES);
 const TRI_UNSUPPORTED_MESSAGE = 'No disponible para Triangular';
 const TRI_NO_PAIRS_MESSAGE = 'Sin pares suficientes para Triangular';
+
+
+interface BacktestMetrics {
+  status: 'empty' | 'ready';
+  message?: string;
+  equity: { t: number; equity: number; pnl: number }[];
+  pnlFinal: number;
+  peakEquity: number;
+  maxDrawdown: number;
+  trades: number;
+  winRate: number;
+  avgPnl: number;
+  bestTrade: number;
+  worstTrade: number;
+}
+
+function tradePnl(t: unknown): number {
+  const n = Number((t as { netProfit?: unknown })?.netProfit);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function tradeTs(t: unknown): number {
+  const n = Number((t as { timestamp?: unknown; ts?: unknown })?.timestamp ?? (t as { ts?: unknown })?.ts);
+  return Number.isFinite(n) ? n : Date.now();
+}
+
+function buildBacktestMetrics(tradesRaw: unknown[], pnlRaw: { t: number; pnl: number; value?: number }[] = []): BacktestMetrics {
+  const trades = tradesRaw
+    .map((t) => ({ t: tradeTs(t), pnl: tradePnl(t) }))
+    .filter((t) => Number.isFinite(t.t) && Number.isFinite(t.pnl))
+    .sort((a, b) => a.t - b.t);
+  if (trades.length < 2) {
+    const equityFromPnl = pnlRaw
+      .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.pnl))
+      .map((p) => ({ t: p.t, equity: p.pnl, pnl: p.pnl }));
+    return {
+      status: 'empty',
+      message: 'Sin operaciones suficientes para backtesting. Ejecuta al menos dos operaciones persistidas de esta estrategia y modo (LIVE o SIM) para reconstruir una curva y métricas estadísticamente útiles.',
+      equity: equityFromPnl,
+      pnlFinal: equityFromPnl.at(-1)?.pnl ?? 0,
+      peakEquity: equityFromPnl.reduce((m, p) => Math.max(m, p.equity), 0),
+      maxDrawdown: 0,
+      trades: trades.length,
+      winRate: 0,
+      avgPnl: 0,
+      bestTrade: 0,
+      worstTrade: 0,
+    };
+  }
+
+  let pnl = 0;
+  let peak = 0;
+  let maxDrawdown = 0;
+  const equity = trades.map((t) => {
+    pnl += t.pnl;
+    if (pnl > peak) peak = pnl;
+    maxDrawdown = Math.max(maxDrawdown, peak - pnl);
+    return { t: t.t, equity: pnl, pnl };
+  });
+  const pnls = trades.map((t) => t.pnl);
+  const wins = pnls.filter((x) => x > 0).length;
+  return {
+    status: 'ready',
+    equity,
+    pnlFinal: pnl,
+    peakEquity: peak,
+    maxDrawdown,
+    trades: trades.length,
+    winRate: wins / trades.length,
+    avgPnl: pnl / trades.length,
+    bestTrade: Math.max(...pnls),
+    worstTrade: Math.min(...pnls),
+  };
+}
+
+function buildBacktestingState(persisted: PersistedState, mode: PersistedMode): Record<PersistedStrategy, BacktestMetrics> {
+  return {
+    cross: buildBacktestMetrics(persisted.buckets[mode].cross.trades, persisted.buckets[mode].cross.pnlHistory),
+    triangular: buildBacktestMetrics(persisted.buckets[mode].triangular.trades, persisted.buckets[mode].triangular.pnlHistory),
+  };
+}
 
 function isTriangularSupportedExchange(exchange: string | null | undefined): boolean {
   return !!exchange && TRIANGULAR_SUPPORTED_SET.has(exchange.toLowerCase());
@@ -177,7 +258,45 @@ async function main(): Promise<void> {
 
   const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
 
+  const persistedState = loadState();
   const pnlHistory: { t: number; pnl: number; value: number }[] = [];
+
+  function restorePnlForMode(): void {
+    pnlHistory.length = 0;
+    const bucket = persistedState.buckets[dataMode].cross;
+    if (bucket.pnlHistory.length) {
+      pnlHistory.push(...bucket.pnlHistory.slice(-PNL_HISTORY_MAX));
+      console.log(`[persist] restored ${pnlHistory.length} ${dataMode.toUpperCase()} Cross P&L points from disk`);
+    }
+  }
+
+  function persistRuntimeState(): void {
+    const mode = dataMode as PersistedMode;
+    persistedState.savedAt = Date.now();
+    persistedState.buckets[mode].cross = {
+      pnlHistory: pnlHistory.slice(-PNL_HISTORY_MAX),
+      trades: engine.getTrades().slice(-500),
+      stats: engine.getStats(),
+    };
+    if (triEngine) {
+      const triState = triEngine.getState();
+      const triTrades = triEngine.getTrades();
+      let triPnl = 0;
+      const triPnlHistory = triTrades
+        .slice(-PNL_HISTORY_MAX)
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .map((t) => { triPnl += t.netProfit; return { t: t.timestamp, pnl: triPnl, value: triState.startBalance + triPnl }; });
+      persistedState.buckets[mode].triangular = {
+        pnlHistory: triPnlHistory,
+        trades: triTrades.slice(-500),
+        stats: triState.stats,
+      };
+    }
+    persistedState.pnlHistory = pnlHistory.slice(-PNL_HISTORY_MAX);
+    persistedState.trades = engine.getTrades().slice(-500);
+    persistedState.stats = engine.getStats();
+    saveState(persistedState);
+  }
   let latest: object | null = null;
   let switchingSource = false;
   let triSync = { rebuilding: false, startedAt: Date.now(), exchange: triExchange };
@@ -195,6 +314,7 @@ async function main(): Promise<void> {
     applyPrefsToEngine();
     pnlHistory.length = 0;
     latest = null;
+    restorePnlForMode();
   }
 
   async function startMarketSource(): Promise<void> {
@@ -246,13 +366,7 @@ async function main(): Promise<void> {
   }, dataMode === 'live' ? 250 : 200);
 
 
-  // Restore P&L curve from disk so the dashboard chart / backtesting view (and
-  // reconnecting clients) survive a server restart during a demo.
-  const restored = loadState();
-  if (restored && restored.pnlHistory.length) {
-    pnlHistory.push(...restored.pnlHistory.slice(-PNL_HISTORY_MAX));
-    console.log(`[persist] restored ${pnlHistory.length} P&L points from disk`);
-  }
+  restorePnlForMode();
 
   function triangularUiState(): object {
     if (!triEngine) return { enabled: false };
@@ -316,6 +430,7 @@ async function main(): Promise<void> {
       exchanges: trading.exchanges,
       activeExchanges: engine.getActiveExchanges(),
       riskAppetite: engine.getRiskAppetite(),
+      riskEffective: engine.getEffectiveRiskSettings(),
       bookAgeMs: state.bookAgeMs,
       avgLatencyMs: engine.avgLatencyMs(),
       latency: state.latency,
@@ -344,6 +459,7 @@ async function main(): Promise<void> {
       wallets: wallets.allWallets(),
       pnlHistory,
       triangular: triangularUiState(),
+      backtesting: buildBacktestingState(persistedState, dataMode),
       strategy: {
         mode: strategyMode,
         effective: effectiveStrategy,
@@ -381,12 +497,7 @@ async function main(): Promise<void> {
     pnlHistory.push({ t: Date.now(), pnl: s.realizedPnl, value: wallets.snapshot(mark).totalValueQuote });
     if (pnlHistory.length > PNL_HISTORY_MAX) pnlHistory.shift();
     // Debounced, throttled disk write — keeps persistence off the hot path.
-    saveState({
-      savedAt: Date.now(),
-      pnlHistory,
-      trades: engine.getTrades().slice(-50),
-      stats: s,
-    });
+    persistRuntimeState();
   }, 1000);
 
   // SSE clients.
@@ -528,7 +639,8 @@ async function main(): Promise<void> {
   });
 
   process.on('SIGINT', () => {
-    flushState({ savedAt: Date.now(), pnlHistory, trades: engine.getTrades().slice(-50), stats: engine.getStats() });
+    persistRuntimeState();
+    flushState(persistedState);
     void (source?.stop() ?? Promise.resolve()).then(() => process.exit(0));
   });
 }
