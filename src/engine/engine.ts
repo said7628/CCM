@@ -61,7 +61,12 @@ export interface TickResult {
 
 export interface EngineStats {
   ticks: number;
+  /** Cumulative opportunities/routes evaluated over the session. */
   opportunitiesSeen: number;
+  /** Cumulative executable opportunities detected over the session. */
+  executableOpportunitiesSeen: number;
+  /** Executable opportunities in the latest tick. */
+  executableNow: number;
   tradesExecuted: number;
   partialTrades: number;
   realizedPnl: number;
@@ -82,6 +87,8 @@ export class ArbitrageEngine {
   private stats: EngineStats = {
     ticks: 0,
     opportunitiesSeen: 0,
+    executableOpportunitiesSeen: 0,
+    executableNow: 0,
     tradesExecuted: 0,
     partialTrades: 0,
     realizedPnl: 0,
@@ -176,7 +183,9 @@ export class ArbitrageEngine {
       volatilityPctPerSec: this.vol.pctPerSec(),
     });
     const executable = opportunities.filter((o) => o.executable);
-    this.stats.opportunitiesSeen += executable.length;
+    this.stats.opportunitiesSeen += opportunities.length;
+    this.stats.executableOpportunitiesSeen += executable.length;
+    this.stats.executableNow = executable.length;
 
     // Count latency ghosts: edges that cleared the profit floor but were rejected
     // because they wouldn't survive the exposure window. This is the headline

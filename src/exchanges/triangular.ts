@@ -79,6 +79,8 @@ export interface TriParams {
   takerFee: number;
   notionalUSDT: number;
   minNetPct: number;
+  /** Quote anchor for the fiat/stable legs. Coinbase commonly uses USD, others use USDT. */
+  quoteCurrency?: 'USDT' | 'USD';
 }
 
 export type TriStatus =
@@ -150,8 +152,11 @@ function sellBaseForQuote(book: OrderBook, baseIn: number, fee: number): Convers
 }
 
 function feeToUSDT(pair: string, feePaidInput: number, books: Record<string, OrderBook>): number {
-  if (pair.endsWith('/USDT')) return feePaidInput;
-  if (pair.endsWith('/BTC')) return feePaidInput * (best(books, 'BTC/USDT')?.bid ?? 0);
+  if (pair.endsWith('/USDT') || pair.endsWith('/USD')) return feePaidInput;
+  if (pair.endsWith('/BTC')) {
+    const quote = Object.keys(books).includes('BTC/USD') ? 'USD' : 'USDT';
+    return feePaidInput * (best(books, `BTC/${quote}`)?.bid ?? 0);
+  }
   return feePaidInput;
 }
 
@@ -162,20 +167,21 @@ function candidateStatus(o: TriangularOpportunity): TriStatus {
 
 
 /** The three pairs that make up the loop for a given candidate coin. */
-export function pairsForCoin(coin: string): [string, string, string] {
-  return ['BTC/USDT', `${coin}/USDT`, `${coin}/BTC`];
+export function pairsForCoin(coin: string, quoteCurrency: 'USDT' | 'USD' = 'USDT'): [string, string, string] {
+  return [`BTC/${quoteCurrency}`, `${coin}/${quoteCurrency}`, `${coin}/BTC`];
 }
 
-function requiredPairsFor(coin: string): string[] {
-  return pairsForCoin(coin);
+function requiredPairsFor(coin: string, quoteCurrency: 'USDT' | 'USD' = 'USDT'): string[] {
+  return pairsForCoin(coin, quoteCurrency);
 }
 
 function evalDirectionA(
   books: Record<string, OrderBook>, coin: string, params: TriParams,
 ): TriangularOpportunity | null {
-  const btcusdt = books['BTC/USDT'];
+  const quote = params.quoteCurrency ?? 'USDT';
+  const btcusdt = books[`BTC/${quote}`];
   const coinbtc = books[`${coin}/BTC`];
-  const coinusdt = books[`${coin}/USDT`];
+  const coinusdt = books[`${coin}/${quote}`];
   if (!btcusdt || !coinbtc || !coinusdt) return null;
   const start = params.notionalUSDT;
   const leg1 = buyBaseWithQuote(btcusdt, start, params.takerFee);
@@ -187,12 +193,12 @@ function evalDirectionA(
   const opp: TriangularOpportunity = {
     exchange: params.exchange,
     coin,
-    path: `USDT→BTC→${coin}→USDT`,
+    path: `${quote}→BTC→${coin}→${quote}`,
     direction: 'A',
     legs: [
-      { pair: 'BTC/USDT', side: 'buy', price: leg1.avgPrice || best(books, 'BTC/USDT')?.ask || 0, fullyFilled: leg1.fullyFilled, levelsConsumed: leg1.levelsConsumed },
+      { pair: `BTC/${quote}`, side: 'buy', price: leg1.avgPrice || best(books, `BTC/${quote}`)?.ask || 0, fullyFilled: leg1.fullyFilled, levelsConsumed: leg1.levelsConsumed },
       { pair: `${coin}/BTC`, side: 'buy', price: leg2.avgPrice || best(books, `${coin}/BTC`)?.ask || 0, fullyFilled: leg2.fullyFilled, levelsConsumed: leg2.levelsConsumed },
-      { pair: `${coin}/USDT`, side: 'sell', price: leg3.avgPrice || best(books, `${coin}/USDT`)?.bid || 0, fullyFilled: leg3.fullyFilled, levelsConsumed: leg3.levelsConsumed },
+      { pair: `${coin}/${quote}`, side: 'sell', price: leg3.avgPrice || best(books, `${coin}/${quote}`)?.bid || 0, fullyFilled: leg3.fullyFilled, levelsConsumed: leg3.levelsConsumed },
     ],
     startUSDT: start,
     endUSDT,
@@ -211,26 +217,27 @@ function evalDirectionA(
 function evalDirectionB(
   books: Record<string, OrderBook>, coin: string, params: TriParams,
 ): TriangularOpportunity | null {
-  const btcusdt = books['BTC/USDT'];
+  const quote = params.quoteCurrency ?? 'USDT';
+  const btcusdt = books[`BTC/${quote}`];
   const coinbtc = books[`${coin}/BTC`];
-  const coinusdt = books[`${coin}/USDT`];
+  const coinusdt = books[`${coin}/${quote}`];
   if (!btcusdt || !coinbtc || !coinusdt) return null;
   const start = params.notionalUSDT;
   const leg1 = buyBaseWithQuote(coinusdt, start, params.takerFee);
   const leg2 = sellBaseForQuote(coinbtc, leg1.out, params.takerFee);
   const leg3 = sellBaseForQuote(btcusdt, leg2.out, params.takerFee);
-  const feeCostUSDT = leg1.feePaidInput + feeToUSDT('BTC/USDT', leg2.feePaidInput, books) + leg3.feePaidInput;
+  const feeCostUSDT = leg1.feePaidInput + feeToUSDT(`BTC/${quote}`, leg2.feePaidInput, books) + leg3.feePaidInput;
   const endUSDT = leg3.out;
   const fullyFilled = leg1.fullyFilled && leg2.fullyFilled && leg3.fullyFilled;
   const opp: TriangularOpportunity = {
     exchange: params.exchange,
     coin,
-    path: `USDT→${coin}→BTC→USDT`,
+    path: `${quote}→${coin}→BTC→${quote}`,
     direction: 'B',
     legs: [
-      { pair: `${coin}/USDT`, side: 'buy', price: leg1.avgPrice || best(books, `${coin}/USDT`)?.ask || 0, fullyFilled: leg1.fullyFilled, levelsConsumed: leg1.levelsConsumed },
+      { pair: `${coin}/${quote}`, side: 'buy', price: leg1.avgPrice || best(books, `${coin}/${quote}`)?.ask || 0, fullyFilled: leg1.fullyFilled, levelsConsumed: leg1.levelsConsumed },
       { pair: `${coin}/BTC`, side: 'sell', price: leg2.avgPrice || best(books, `${coin}/BTC`)?.bid || 0, fullyFilled: leg2.fullyFilled, levelsConsumed: leg2.levelsConsumed },
-      { pair: 'BTC/USDT', side: 'sell', price: leg3.avgPrice || best(books, 'BTC/USDT')?.bid || 0, fullyFilled: leg3.fullyFilled, levelsConsumed: leg3.levelsConsumed },
+      { pair: `BTC/${quote}`, side: 'sell', price: leg3.avgPrice || best(books, `BTC/${quote}`)?.bid || 0, fullyFilled: leg3.fullyFilled, levelsConsumed: leg3.levelsConsumed },
     ],
     startUSDT: start,
     endUSDT,
@@ -313,13 +320,13 @@ export function detectTriangularMulti(
   const perCoin: TriangularOpportunity[] = [];
   const candidates: TriCandidateView[] = [];
   for (const coin of coins) {
-    if (coin === 'BTC' || coin === 'USDT') continue; // base coins are anchors, not candidates
-    const missingPairs = requiredPairsFor(coin).filter((pair) => !books[pair] || !books[pair].bids[0] || !books[pair].asks[0]);
+    if (coin === 'BTC' || coin === 'USDT' || coin === 'USD') continue; // base coins are anchors, not candidates
+    const missingPairs = requiredPairsFor(coin, params.quoteCurrency ?? 'USDT').filter((pair) => !books[pair] || !books[pair].bids[0] || !books[pair].asks[0]);
     if (missingPairs.length) {
       const { status, reasons } = statusFromPairStatuses(missingPairs, pairStatuses);
       candidates.push({
         coin,
-        path: `USDT→BTC→${coin}→USDT`,
+        path: `${params.quoteCurrency ?? 'USDT'}→BTC→${coin}→${params.quoteCurrency ?? 'USDT'}`,
         direction: 'A',
         netProfit: 0,
         netProfitPct: 0,
@@ -379,7 +386,7 @@ export class TriangularEngine {
   private trades: TriangularTrade[] = [];
   private counter = 0;
   private lastExecAt = 0;
-  private stats = { opportunitiesSeen: 0, trades: 0, realizedPnl: 0, bestNetPct: 0 };
+  private stats = { opportunitiesSeen: 0, executableNow: 0, trades: 0, realizedPnl: 0, bestNetPct: 0 };
   private lastOpp: TriangularOpportunity | null = null;
   private lastPerCoin: TriCandidateView[] = [];
   /** Active candidate coins (third leg). BTC/USDT are always the implicit anchors. */
@@ -393,12 +400,12 @@ export class TriangularEngine {
     // Default to ETH so the legacy single-triangle behaviour is preserved when
     // no explicit coin list is supplied (keeps existing tests valid).
     this.coins = (params.coins && params.coins.length ? [...params.coins] : ['ETH'])
-      .filter((c) => c !== 'BTC' && c !== 'USDT');
+      .filter((c) => c !== 'BTC' && c !== 'USDT' && c !== 'USD');
   }
 
   /** Replace the active candidate coin set (UI toggle). */
   setCoins(coins: readonly string[]): void {
-    const next = [...coins].filter((c) => c && c !== 'BTC' && c !== 'USDT');
+    const next = [...coins].filter((c) => c && c !== 'BTC' && c !== 'USDT' && c !== 'USD');
     this.coins = next.length ? next : ['ETH'];
   }
   getCoins(): string[] {
@@ -412,10 +419,13 @@ export class TriangularEngine {
     const { best, candidates } = detectTriangularMulti(books, this.params, this.coins, pairStatuses);
     this.lastOpp = best;
     this.lastPerCoin = candidates;
+    const priceable = candidates.filter((c) => c.status === 'Listo' || c.status === 'Ejecutable');
+    const executable = candidates.filter((c) => c.executable);
+    this.stats.opportunitiesSeen += candidates.length;
+    this.stats.executableNow = executable.length;
+    for (const c of priceable) if (c.netProfitPct > this.stats.bestNetPct) this.stats.bestNetPct = c.netProfitPct;
     if (!best) return;
     if (best.executable) {
-      this.stats.opportunitiesSeen += 1;
-      if (best.netProfitPct > this.stats.bestNetPct) this.stats.bestNetPct = best.netProfitPct;
       const now = Date.now();
       if (now - this.lastExecAt >= this.params.cooldownMs) {
         this.lastExecAt = now;
@@ -446,7 +456,7 @@ export class TriangularEngine {
     feeCostUSDT: number;
     takerFee: number;
     notionalUSDT: number;
-    stats: { opportunitiesSeen: number; trades: number; realizedPnl: number; bestNetPct: number };
+    stats: { opportunitiesSeen: number; executableNow: number; trades: number; realizedPnl: number; bestNetPct: number };
     balanceUSDT: number;
     startBalance: number;
     trades: TriangularTrade[];

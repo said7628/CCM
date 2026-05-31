@@ -26,11 +26,11 @@ export interface TriFeed {
 }
 
 /** All pairs needed to price the loops for a set of candidate coins. */
-export function pairsForCoins(coins: readonly string[]): string[] {
-  const out = new Set<string>(['BTC/USDT']);
+export function pairsForCoins(coins: readonly string[], quoteCurrency: 'USDT' | 'USD' = 'USDT'): string[] {
+  const out = new Set<string>([`BTC/${quoteCurrency}`]);
   for (const c of coins) {
     if (c === 'BTC' || c === 'USDT') continue;
-    out.add(`${c}/USDT`);
+    out.add(`${c}/${quoteCurrency}`);
     out.add(`${c}/BTC`);
   }
   return [...out];
@@ -83,14 +83,14 @@ export class SimTriFeed implements TriFeed {
   private coins: string[];
   private books: Record<string, OrderBook> = {};
   private timer?: NodeJS.Timeout;
-  constructor(private exchange: string, coins: readonly string[] = ['ETH'], private intervalMs = 200) {
-    this.coins = [...coins].filter((c) => c !== 'BTC' && c !== 'USDT');
+  constructor(private exchange: string, coins: readonly string[] = ['ETH'], private intervalMs = 200, private quoteCurrency: 'USDT' | 'USD' = 'USDT') {
+    this.coins = [...coins].filter((c) => c !== 'BTC' && c !== 'USDT' && c !== 'USD');
     if (!this.coins.length) this.coins = ['ETH'];
     for (const c of this.coins) this.usd[c] = synthUsd(c);
     this.regen();
   }
   setCoins(coins: readonly string[]): void {
-    const next = [...coins].filter((c) => c !== 'BTC' && c !== 'USDT');
+    const next = [...coins].filter((c) => c !== 'BTC' && c !== 'USDT' && c !== 'USD');
     this.coins = next.length ? next : ['ETH'];
     for (const c of this.coins) if (this.usd[c] === undefined) this.usd[c] = synthUsd(c);
     this.regen();
@@ -106,15 +106,15 @@ export class SimTriFeed implements TriFeed {
   }
   getPairStatuses(): Record<string, string> {
     const statuses: Record<string, string> = {};
-    for (const pair of pairsForCoins(this.coins)) statuses[pair] = this.books[pair] ? 'Listo' : 'Cargando';
+    for (const pair of pairsForCoins(this.coins, this.quoteCurrency)) statuses[pair] = this.books[pair] ? 'Listo' : 'Cargando';
     return statuses;
   }
-  getRequiredPairs(): string[] { return pairsForCoins(this.coins); }
+  getRequiredPairs(): string[] { return pairsForCoins(this.coins, this.quoteCurrency); }
   private regen(): void {
     // Mean-reverting walk for BTC/USD.
     this.btc += (70_000 - this.btc) * 0.05 + this.btc * (this.rng() - 0.5) * 0.0006;
     const books: Record<string, OrderBook> = {
-      'BTC/USDT': synthBook(this.exchange, 'BTC/USDT', this.btc, this.rng),
+      [`BTC/${this.quoteCurrency}`]: synthBook(this.exchange, `BTC/${this.quoteCurrency}`, this.btc, this.rng),
     };
     for (const coin of this.coins) {
       const fair = synthUsd(coin);
@@ -123,7 +123,7 @@ export class SimTriFeed implements TriFeed {
       // COIN/BTC normally tracks usd/btc, but occasionally dislocates -> a loop appears.
       let coinbtc = usd / this.btc;
       if (this.rng() < 0.25) coinbtc *= 1 + (this.rng() - 0.5) * 0.01; // ±0.5%
-      books[`${coin}/USDT`] = synthBook(this.exchange, `${coin}/USDT`, usd, this.rng);
+      books[`${coin}/${this.quoteCurrency}`] = synthBook(this.exchange, `${coin}/${this.quoteCurrency}`, usd, this.rng);
       books[`${coin}/BTC`] = synthBook(this.exchange, `${coin}/BTC`, coinbtc, this.rng);
     }
     this.books = books;
@@ -223,8 +223,8 @@ export class NativeWsTriFeed implements TriFeed {
   private startedAt: Record<string, number> = {};
   private readonly wsTimeoutMs = Number(process.env.TRI_WS_TIMEOUT_MS ?? 8000);
 
-  constructor(private exchange: string, coins: readonly string[] = ['ETH'], private depth = 20) {
-    this.pairs = pairsForCoins(coins);
+  constructor(private exchange: string, coins: readonly string[] = ['ETH'], private depth = 20, private quoteCurrency: 'USDT' | 'USD' = 'USDT') {
+    this.pairs = pairsForCoins(coins, quoteCurrency);
   }
 
   async start(): Promise<void> {
@@ -240,7 +240,7 @@ export class NativeWsTriFeed implements TriFeed {
   }
 
   setCoins(coins: readonly string[]): void {
-    this.pairs = pairsForCoins(coins);
+    this.pairs = pairsForCoins(coins, this.quoteCurrency);
     if (this.running) void this.rebuildClients();
   }
 
@@ -345,12 +345,12 @@ export class CcxtTriFeed implements TriFeed {
   private errored = new Set<string>();
   private statuses: Record<string, string> = {};
   private pairs: string[];
-  constructor(private exchange: string, coins: readonly string[] = ['ETH'], private intervalMs = 1000, private depth = 20) {
-    this.pairs = pairsForCoins(coins);
+  constructor(private exchange: string, coins: readonly string[] = ['ETH'], private intervalMs = 1000, private depth = 20, private quoteCurrency: 'USDT' | 'USD' = 'USDT') {
+    this.pairs = pairsForCoins(coins, quoteCurrency);
   }
 
   setCoins(coins: readonly string[]): void {
-    this.pairs = pairsForCoins(coins);
+    this.pairs = pairsForCoins(coins, this.quoteCurrency);
     // Drop books for pairs no longer tracked so stale data can't be used.
     const keep = new Set(this.pairs);
     for (const k of Object.keys(this.books)) if (!keep.has(k)) delete this.books[k];

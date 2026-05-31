@@ -25,6 +25,28 @@ import { recommend, type StrategyStat } from '../engine/strategies';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const PNL_HISTORY_MAX = 180;
+const TRIANGULAR_SUPPORTED_EXCHANGES = ['binance', 'kraken', 'coinbase'] as const;
+const TRIANGULAR_SUPPORTED_SET = new Set<string>(TRIANGULAR_SUPPORTED_EXCHANGES);
+const TRI_UNSUPPORTED_MESSAGE = 'No disponible para Triangular';
+const TRI_NO_PAIRS_MESSAGE = 'Sin pares suficientes para Triangular';
+
+function isTriangularSupportedExchange(exchange: string | null | undefined): boolean {
+  return !!exchange && TRIANGULAR_SUPPORTED_SET.has(exchange.toLowerCase());
+}
+
+function exchangeLabel(exchange: string): string {
+  return exchange.charAt(0).toUpperCase() + exchange.slice(1);
+}
+
+function triQuoteCurrency(exchange: string): 'USDT' | 'USD' {
+  return exchange === 'coinbase' ? 'USD' : 'USDT';
+}
+
+function firstSupportedTriExchange(configured: string[], preferred?: string | null): string {
+  const normalized = preferred?.toLowerCase();
+  if (normalized && isTriangularSupportedExchange(normalized)) return normalized;
+  return configured.find((ex) => isTriangularSupportedExchange(ex)) ?? 'binance';
+}
 
 async function buildSource(
   mode: string,
@@ -142,10 +164,7 @@ async function main(): Promise<void> {
   let triFeed: TriFeed | null = null;
 
   // Resolve the triangular venue: persisted pref → env → first connected venue.
-  const defaultTriExchange = prefs.triExchange
-    ?? process.env.TRI_EXCHANGE
-    ?? trading.exchanges[0]
-    ?? 'binance';
+  const defaultTriExchange = firstSupportedTriExchange(trading.exchanges, prefs.triExchange ?? process.env.TRI_EXCHANGE);
   let triExchange = defaultTriExchange;
   // Active candidate coins: persisted pref → env list → built-in default set.
   const envCoins = process.env.TRI_COINS?.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -153,7 +172,7 @@ async function main(): Promise<void> {
     ? prefs.triCoins.slice()
     : (envCoins && envCoins.length ? envCoins : [...DEFAULT_TRI_COINS_ACTIVE]);
   // BTC/USDT are mandatory anchors, never candidate "third-leg" coins.
-  triCoins = triCoins.filter((c) => c !== 'BTC' && c !== 'USDT');
+  triCoins = triCoins.filter((c) => c !== 'BTC' && c !== 'USDT' && c !== 'USD');
   if (!triCoins.length) triCoins = [...DEFAULT_TRI_COINS_ACTIVE];
 
   const triNotional = Number(process.env.TRI_NOTIONAL ?? 10_000);
@@ -166,7 +185,7 @@ async function main(): Promise<void> {
   function initialTriStatuses(): Record<string, string> {
     const { pairsForCoins } = require('../exchanges/tri-source') as typeof import('../exchanges/tri-source');
     const statuses: Record<string, string> = {};
-    for (const pair of pairsForCoins(triCoins)) statuses[pair] = 'Cargando';
+    for (const pair of pairsForCoins(triCoins, triQuoteCurrency(triExchange))) statuses[pair] = 'Cargando';
     return statuses;
   }
 
@@ -197,7 +216,7 @@ async function main(): Promise<void> {
     if (triFeed) { try { await triFeed.stop(); } catch { /* ignore */ } triFeed = null; }
     const triFee = triTakerFor(triExchange);
     triEngine = new TriangularEngine({
-      exchange: triExchange, takerFee: triFee, notionalUSDT: triNotional,
+      exchange: triExchange, takerFee: triFee, notionalUSDT: triNotional, quoteCurrency: triQuoteCurrency(triExchange),
       minNetPct: trading.minNetProfitPct, cooldownMs: 1000, startBalance: triNotional * 10,
       coins: triCoins,
     });
@@ -207,10 +226,10 @@ async function main(): Promise<void> {
     try {
       if (dataMode === 'live') {
         const { NativeWsTriFeed } = await import('../exchanges/tri-source');
-        triFeed = new NativeWsTriFeed(triExchange, triCoins, trading.orderBookDepth);
+        triFeed = new NativeWsTriFeed(triExchange, triCoins, trading.orderBookDepth, triQuoteCurrency(triExchange));
       } else {
         const { SimTriFeed } = await import('../exchanges/tri-source');
-        triFeed = new SimTriFeed(triExchange, triCoins, 200);
+        triFeed = new SimTriFeed(triExchange, triCoins, 200, triQuoteCurrency(triExchange));
       }
       await triFeed.start();
       console.log(`[info] triangular syncing on ${triExchange} (${dataMode.toUpperCase()}, fee ${(triFee * 100).toFixed(3)}%, coins ${triCoins.join(',')})`);
@@ -249,20 +268,30 @@ async function main(): Promise<void> {
     const elapsedMs = Date.now() - triSync.startedAt;
     const loading = triSync.rebuilding || (readyPairs < requiredPairs.length && elapsedMs < Number(process.env.TRI_LOADING_GRACE_MS ?? 8000));
     const slow = !loading && waitingPairs.length > 0;
-    const exchangeName = triExchange.charAt(0).toUpperCase() + triExchange.slice(1);
+    const exchangeName = exchangeLabel(triExchange);
     const sample = triCoins.slice(0, 1)[0] ?? 'COIN';
     return {
       ...state,
-      baseCoins: ['BTC', 'USDT'],
+      baseCoins: ['BTC', triQuoteCurrency(triExchange)],
       availableCoins: [...DEFAULT_TRI_COINS],
       activeCoins: triEngine.getCoins(),
       candidateExchanges: trading.exchanges,
+      supportedExchanges: [...TRIANGULAR_SUPPORTED_EXCHANGES],
+      exchangeOptions: trading.exchanges.map((exchange) => {
+        const supported = isTriangularSupportedExchange(exchange);
+        const selected = exchange === triExchange;
+        const noPairs = selected && state.candidates.length > 0
+          && state.candidates.every((c) => c.status === 'Par no disponible' || c.status === 'Sin pares suficientes' || c.status === 'Endpoint bloqueado');
+        const available = supported && !noPairs;
+        const reason = supported ? (noPairs ? TRI_NO_PAIRS_MESSAGE : null) : TRI_UNSUPPORTED_MESSAGE;
+        return { exchange, supported, available, reason };
+      }),
       pairStatuses: statuses,
       sync: {
         loading,
         slow,
         message: loading ? `Sincronizando order books de ${exchangeName}…` : (slow ? 'Algunos pares siguen esperando WebSocket' : `Order books sincronizados en ${exchangeName}`),
-        detail: `Cargando pares BTC/USDT, ${sample}/USDT y ${sample}/BTC…`,
+        detail: `Cargando pares BTC/${triQuoteCurrency(triExchange)}, ${sample}/${triQuoteCurrency(triExchange)} y ${sample}/BTC…`,
         readyPairs,
         totalPairs: requiredPairs.length,
         readyRoutes,
@@ -454,9 +483,9 @@ async function main(): Promise<void> {
           })();
         }
       } else if (cmd === 'tri-exchange') {
-        // Triangular runs on exactly ONE venue. Switching rebuilds its feed.
+        // Triangular runs on exactly ONE supported venue. Switching rebuilds its feed.
         const v = (params.get('value') ?? '').trim().toLowerCase();
-        if (v && v !== triExchange) {
+        if (v && isTriangularSupportedExchange(v) && v !== triExchange) {
           triExchange = v;
           prefs.triExchange = triExchange;
           savePrefs(prefs);
@@ -467,7 +496,7 @@ async function main(): Promise<void> {
         // Comma-separated active candidate coins. BTC/USDT are always anchors.
         const valRaw = params.get('value') ?? '';
         const next = valRaw.split(',').map((s) => s.trim().toUpperCase())
-          .filter((c) => c && c !== 'BTC' && c !== 'USDT');
+          .filter((c) => c && c !== 'BTC' && c !== 'USDT' && c !== 'USD');
         triCoins = next.length ? next : [...DEFAULT_TRI_COINS_ACTIVE];
         prefs.triCoins = triCoins.slice();
         savePrefs(prefs);
