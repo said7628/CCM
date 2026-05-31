@@ -349,17 +349,82 @@
   .seg button.on{background:var(--teal-dim);color:var(--teal-2);border-color:color-mix(in srgb,var(--teal) 30%,transparent);}
   .reco-badge{width:46px;height:46px;border-radius:13px;background:var(--accent-grad);color:#fff;display:grid;place-items:center;font-size:22px;flex:none;box-shadow:0 6px 16px color-mix(in srgb,var(--teal) 35%,transparent);}
 
+  .menubtn{display:none;flex:none;}
   @media(max-width:1180px){
     .hero,.kpiwrap,.cmpwrap,.row3{grid-template-columns:1fr;}
     .row4{grid-template-columns:1fr;}
     .pnlcard{grid-template-columns:1fr;}
   }
   @media(max-width:880px){
-    .app{grid-template-columns:1fr;}
-    .side{display:none;}
-    .kpis{grid-template-columns:1fr 1fr;}
-    .hero-art{width:44%;right:-34px;opacity:.55;}
-    .top-tools .search,.render{display:none;}
+    html,body{max-width:100%;overflow-x:hidden;}
+    .app{display:block;min-width:0;width:100%;}
+    .main{padding:0 16px 34px;width:100%;min-width:0;}
+    .menubtn{display:grid;}
+    .side{position:fixed;left:12px;top:12px;bottom:12px;z-index:80;width:min(306px,calc(100vw - 24px));height:auto;transform:translateX(calc(-100% - 24px));transition:transform .18s ease;display:flex;border-radius:18px;border:1px solid var(--line);box-shadow:0 18px 48px rgba(16,40,60,.18);background:var(--panel);}
+    body.navOpen .side{transform:translateX(0);}
+    body.navOpen::after{content:"";position:fixed;inset:0;z-index:70;background:rgba(7,13,20,.28);backdrop-filter:blur(1px);}
+    .topbar{gap:10px;align-items:flex-start;flex-wrap:wrap;padding:12px 0 12px;background:linear-gradient(180deg,var(--bg) 82%,transparent);}
+    .hello{min-width:0;flex:1 1 210px;}
+    .hello h1{font-size:18px;line-height:1.15;}
+    .hello p{font-size:11.5px;}
+    .top-tools{margin-left:0;width:100%;display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;}
+    .top-tools .search{grid-column:1/-1;display:flex;width:100%;min-height:44px;padding:10px 12px;}
+    .pill,.databadge,.iconbtn,.btnlink,.sourceopts button,.seg button{min-height:44px;}
+    .pill,.databadge{padding:9px 11px;min-width:0;justify-content:center;}
+    .render{display:none;}
+    .user{padding:5px;border-radius:12px;min-height:44px;}
+    .user .nm,.user .rl{display:none;}
+    .hero{grid-template-columns:1fr;gap:12px;}
+    .hero-l h2{font-size:24px;max-width:none;}
+    .hero-r{min-height:188px;padding:18px;}
+    .hero-art{width:46%;right:-32px;opacity:.45;}
+    .kpiwrap{grid-template-columns:1fr;gap:12px;}
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+    .kpi{min-height:118px;padding:14px;}
+    .kpi .v{font-size:20px;}
+    .pnlcard{grid-template-columns:1fr;padding:15px;gap:12px;}
+    .pnlcard .big{font-size:30px;}
+    .ministats,.riskgrid,.rsplit{grid-template-columns:1fr 1fr;}
+    .cmpwrap,.row3,.row4,.cfg{grid-template-columns:1fr;gap:12px;}
+    .row4 > .card[style*="grid-column"]{grid-column:auto !important;}
+    .card{max-width:100%;overflow-x:auto;}
+    table{min-width:680px;}
+    .scan table,.cmpwrap table{min-width:620px;}
+    .sechead{align-items:flex-start;gap:10px;flex-wrap:wrap;}
+    .sechead > div:last-child{margin-left:0;}
+    .triroute{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:13px;}
+    .triarrow{display:none;}
+    .trinode{text-align:center;padding:9px 8px;min-height:38px;}
+    .coingrid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .cointog,.extog{min-height:44px;}
+    .sourceopts,.seg{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+  }
+  @media(max-width:430px){
+    .main{padding:0 12px 28px;}
+    .top-tools{grid-template-columns:1fr 1fr auto;}
+    .databadge{font-size:10.5px;}
+    .kpis{grid-template-columns:1fr;}
+    .ministats,.riskgrid,.rsplit,.trikv{grid-template-columns:1fr;}
+    .hero-r{min-height:170px;}
+    .hero-art{width:58%;right:-56px;}
+    .tabs{width:100%;overflow-x:auto;}
+    .tabs button{min-width:44px;min-height:36px;}
+    .coingrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+    .cointog{padding:9px 8px;gap:7px;}
+    .cointog .sw,.extog .sw{width:42px;height:24px;}
+    .cointog .sw::after,.extog .sw::after{width:20px;height:20px;}
+    .cointog.on .sw::after,.cointog.locked .sw::after,.extog.on .sw::after{transform:translateX(18px);}
+    table{min-width:620px;}
+  }
+  @media(max-width:360px){
+    .main{padding-left:10px;padding-right:10px;}
+    .pad{padding:14px;}
+    .top-tools{grid-template-columns:1fr auto;}
+    .top-tools .pill{grid-column:1/2;}
+    .top-tools .databadge{grid-column:1/-1;order:4;}
+    .hero-l h2{font-size:22px;}
+    .coingrid{grid-template-columns:1fr;}
+    .sourceopts,.seg{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -386,6 +451,7 @@
   <!-- MAIN -->
   <main class="main">
     <header class="topbar">
+      <button class="iconbtn menubtn" id="menuBtn" title="Menú" aria-label="Abrir navegación"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <div class="hello">
         <h1>¡Bienvenido de vuelta!</h1>
         <p>Monitoriza mercados, detecta diferencias y ejecuta arbitrajes con precisión.</p>
@@ -485,9 +551,13 @@ document.querySelectorAll("#nav a").forEach((a) => {
     activeView = v; PREF.view = v; savePrefs();
     document.querySelectorAll("#nav a").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
     document.querySelectorAll(".view").forEach((x) => x.classList.toggle("on", x.id === "view-" + v));
+    document.body.classList.remove("navOpen");
     ensureSkeleton(v); markDirty(true);
   };
 });
+const menuBtn = $("menuBtn");
+if (menuBtn) menuBtn.onclick = () => document.body.classList.toggle("navOpen");
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") document.body.classList.remove("navOpen"); });
 
 /* ---------- view skeletons (built once each) ---------- */
 function ensureSkeleton(v) {
@@ -821,19 +891,38 @@ function triCandidates(s) {
   return ((s.triangular && s.triangular.candidates) || []);
 }
 function triExecutableCount(s) { return triCandidates(s).filter((c) => c.executable).length; }
+function triDecision(c) {
+  const reasons = Array.isArray(c && c.reasons) ? c.reasons.filter(Boolean) : [];
+  if (c && c.executable) return "Ruta ejecutable";
+  if (reasons.length) return reasons.join(" · ");
+  const st = (c && c.status) || "En espera";
+  if (st === "No rentable") return "Profit neto negativo";
+  if (st === "Fees exceden spread") return "Fees exceden spread";
+  if (st === "Debajo del umbral") return "Debajo del umbral";
+  if (st === "Esperando WebSocket" || st === "WebSocket pendiente") return "Esperando WebSocket";
+  if (st === "Sin order book todavía") return "Datos incompletos";
+  if (st === "Listo") return "Datos cargados; evaluando umbral";
+  return st;
+}
+function triStatus(c) {
+  if (!c) return "En espera";
+  if (c.executable) return "Ejecutable";
+  if (c.status === "Listo") return triDecision(c) === "Profit neto negativo" ? "No rentable" : "En espera";
+  return c.status || "En espera";
+}
 function statusBadge(status, executable) {
   if (executable) return `<span class="stbadge st-exec">Ejecutable</span>`;
-  if (status === "Listo") return `<span class="stbadge st-filled">Listo</span>`;
-  const ghost = ["Cargando", "Sin pares suficientes", "Sin profundidad suficiente", "Endpoint bloqueado", "Par no disponible", "Sin order book todavía", "Esperando WebSocket", "WebSocket pendiente", "Sin liquidez"].includes(status);
-  return `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${esc(status || "En espera")}</span>`;
+  const label = status === "Listo" ? "En espera" : (status || "En espera");
+  const ghost = ["Cargando", "Sin pares suficientes", "Sin profundidad suficiente", "Endpoint bloqueado", "Par no disponible", "Sin order book todavía", "Esperando WebSocket", "WebSocket pendiente", "Sin liquidez", "Datos incompletos", "En espera"].includes(label);
+  return `<span class="stbadge ${ghost ? "st-ghost" : "st-rej"}">${esc(label)}</span>`;
 }
 function triScannerRows(s, limit) {
   const rows = triCandidates(s).slice(0, limit || 999).map((c) => {
     const detail = c.reasons && c.reasons.length ? c.reasons : (c.missingPairs || []).map((p) => `${p}: Sin order book todavía`);
     const miss = detail.length ? `<br><span class="muted" style="font-size:10.5px">${esc(detail.join(" · "))}</span>` : "";
-    return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
+    return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td>${esc(triDecision(c))}</td><td class="r">${statusBadge(triStatus(c), c.executable)}</td></tr>`;
   }).join("");
-  return rows || `<tr><td colspan="5" class="empty">Sin rutas candidatas todavía. Revisa pares COIN/BTC y COIN/USDT para el exchange seleccionado.</td></tr>`;
+  return rows || `<tr><td colspan="6" class="empty">Sin rutas candidatas todavía. Revisa pares COIN/BTC y COIN/USDT para el exchange seleccionado.</td></tr>`;
 }
 function renderTop(s) {
   const connected = !!es && es.readyState === 1;
@@ -951,7 +1040,7 @@ function renderResumen(s) {
 
   // scanner: Cross-Exchange and Triangular never share table semantics.
   if (tri) {
-    $("scanHead").innerHTML = `<tr><th>Moneda puente</th><th>Ruta</th><th class="r">Profit %</th><th class="r">Fees</th><th class="r">Estado</th></tr>`;
+    $("scanHead").innerHTML = `<tr><th>Moneda puente</th><th>Ruta</th><th class="r">Profit %</th><th class="r">Fees</th><th>Razón</th><th class="r">Estado</th></tr>`;
     $("scanBody").innerHTML = triScannerRows(s, 5);
   } else {
     $("scanHead").innerHTML = `<tr><th>Comprar en</th><th>Vender en</th><th class="r">Spread</th><th class="r">Volumen</th><th class="r">Estado</th></tr>`;
@@ -1045,12 +1134,12 @@ function renderOppsView(s) {
   if (tri) {
     setText("oppTitle", `Oportunidades triangulares · ${exMeta((s.triangular || {}).exchange || "").n}`);
     setText("oppHelp", "Rutas dentro de un solo exchange: no todos los exchanges tienen todos los pares COIN/BTC y COIN/USDT.");
-    $("oppHead").innerHTML = `<tr><th>Moneda puente</th><th>Ruta</th><th>Exchange</th><th class="r">Profit estimado</th><th class="r">Profit %</th><th class="r">Fees</th><th class="r">Estado</th></tr>`;
+    $("oppHead").innerHTML = `<tr><th>Moneda puente</th><th>Ruta</th><th>Exchange</th><th class="r">Profit estimado</th><th class="r">Profit %</th><th class="r">Fees</th><th>Razón</th><th class="r">Estado</th></tr>`;
     $("oppFull").innerHTML = triCandidates(s).map((c) => {
       const detail = c.reasons && c.reasons.length ? c.reasons : (c.missingPairs || []).map((p) => `${p}: Sin order book todavía`);
       const miss = detail.length ? `<br><span class="muted" style="font-size:10.5px">${esc(detail.join(" · "))}</span>` : "";
-      return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td>${exTag((s.triangular || {}).exchange || "")}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
-    }).join("") || `<tr><td colspan="7" class="empty">Sin rutas candidatas todavía. Activa monedas o revisa pares disponibles en el exchange seleccionado.</td></tr>`;
+      return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td>${exTag((s.triangular || {}).exchange || "")}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td>${esc(triDecision(c))}</td><td class="r">${statusBadge(triStatus(c), c.executable)}</td></tr>`;
+    }).join("") || `<tr><td colspan="8" class="empty">Sin rutas candidatas todavía. Activa monedas o revisa pares disponibles en el exchange seleccionado.</td></tr>`;
     return;
   }
   setText("oppTitle", "Todas las oportunidades Cross-Exchange");
@@ -1352,6 +1441,30 @@ let _strategyPending = null;
 let _strategyPendingAt = 0;
 const STRAT_DESC = { cross: "Compra y vende el mismo activo entre dos exchanges.", triangular: "Aprovecha el desajuste entre tres pares dentro de un exchange." };
 let _stratWired = false;
+
+function strategyStatusBadge(sc, strat, reco, s) {
+  const isActive = sc.id === strat.effective;
+  if (sc.id !== "triangular") {
+    if (isActive) return '<span class="stbadge st-exec">Activa</span>';
+    return sc.id === reco.bestId ? '<span class="stbadge st-ghost">Recomendada</span>' : '<span class="stbadge st-rej">En espera</span>';
+  }
+  const t = s.triangular || {};
+  const cands = triCandidates(s);
+  const activeCoins = t.activeCoins || t.coins || [];
+  const exec = cands.some((c) => c.executable);
+  const positive = cands.some((c) => (c.netProfit || 0) > 0 && !c.executable);
+  const allPairMissing = cands.length > 0 && cands.every((c) => ["Par no disponible", "Sin pares suficientes", "Endpoint bloqueado"].includes(c.status));
+  const anyPairMissing = cands.some((c) => ["Par no disponible", "Sin pares suficientes", "Endpoint bloqueado"].includes(c.status));
+  let label = "En espera";
+  let clsName = "st-ghost";
+  if (!activeCoins.length || cands.length === 0) { label = "Sin pares suficientes"; clsName = "st-ghost"; }
+  else if (exec) { label = isActive ? "Activa · ejecutable" : "Ejecutable"; clsName = "st-exec"; }
+  else if (allPairMissing) { label = cands.some((c) => c.status === "Par no disponible") ? "Par no disponible" : "Sin pares suficientes"; clsName = "st-ghost"; }
+  else if (anyPairMissing && !positive) { label = "Par no disponible"; clsName = "st-ghost"; }
+  else if (cands.some((c) => c.status === "Esperando WebSocket" || c.status === "Cargando" || c.status === "Datos incompletos")) { label = "En espera"; clsName = "st-ghost"; }
+  else { label = isActive ? "Activa · sin rutas rentables" : "No rentable"; clsName = "st-rej"; }
+  return `<span class="stbadge ${clsName}">${esc(label)}</span>`;
+}
 function renderStratView(s) {
   const strat = s.strategy || { mode: "cross", effective: "cross", available: ["cross"], recommendation: { scores: [] }, events: [] };
   const avail = (strat.available || ["cross", "triangular"]).filter((id) => id !== "auto");
@@ -1389,7 +1502,7 @@ function renderStratView(s) {
   const scores = reco.scores || [];
   $("stratTable").innerHTML = scores.map((sc) => {
     const isActive = sc.id === strat.effective;
-    return `<tr><td><b>${STRAT_LABELS[sc.id] || sc.id}</b></td><td class="r num">${sc.trades}</td><td class="r num ${cls(sc.realizedPnl)}">${usd(sc.realizedPnl)}</td><td class="r num ${cls(sc.pnlPerTrade)}">${usd(sc.pnlPerTrade)}</td><td class="r num">${pct(sc.bestNetPct)}</td><td class="r num">${sc.opportunitiesSeen}</td><td class="r">${isActive ? '<span class="stbadge st-exec">Activa</span>' : (sc.id === reco.bestId ? '<span class="stbadge st-ghost">Recomendada</span>' : '<span class="stbadge st-rej">En espera</span>')}</td></tr>`;
+    return `<tr><td><b>${STRAT_LABELS[sc.id] || sc.id}</b></td><td class="r num">${sc.trades}</td><td class="r num ${cls(sc.realizedPnl)}">${usd(sc.realizedPnl)}</td><td class="r num ${cls(sc.pnlPerTrade)}">${usd(sc.pnlPerTrade)}</td><td class="r num">${pct(sc.bestNetPct)}</td><td class="r num">${sc.opportunitiesSeen}</td><td class="r">${strategyStatusBadge(sc, strat, reco, s)}</td></tr>`;
   }).join("") || `<tr><td colspan="7" class="empty">Sin datos de estrategia aún.</td></tr>`;
 
   // switch history
@@ -1444,8 +1557,8 @@ function renderTriPanel(s, show) {
   const candRows = cands.map((c) => {
     const detail = c.reasons && c.reasons.length ? c.reasons : (c.missingPairs || []).map((p) => `${p}: Sin order book todavía`);
     const miss = detail.length ? `<br><span class="muted" style="font-size:10.5px">${esc(detail.join(" · "))}</span>` : "";
-    return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td class="r">${statusBadge(c.status, c.executable)}</td></tr>`;
-  }).join("") || `<tr><td colspan="6" class="empty">Aún sin rutas priceables. Verifica que el exchange tenga los pares COIN/BTC y COIN/USDT.</td></tr>`;
+    return `<tr><td><b>${esc(c.coin)}</b>${miss}</td><td>${esc(c.path)}</td><td class="r num ${cls(c.netProfit)}">${usd(c.netProfit)}</td><td class="r num ${cls(c.netProfitPct)}">${pct(c.netProfitPct)}</td><td class="r num">${usd(c.feeCostUSDT || 0)}</td><td>${esc(triDecision(c))}</td><td class="r">${statusBadge(triStatus(c), c.executable)}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty">Aún sin rutas priceables. Verifica que el exchange tenga los pares COIN/BTC y COIN/USDT.</td></tr>`;
 
   $("triPanelBody").innerHTML = `
     ${syncBox}
@@ -1461,7 +1574,7 @@ function renderTriPanel(s, show) {
       <div class="tricell"><div class="k">Costo fees (3 patas)</div><div class="v num">${feeCost}</div></div>
     </div>
     <div style="margin-top:18px"><div class="h" style="font-size:14px">Rutas candidatas por moneda</div>
-      <table style="margin-top:8px"><thead><tr><th>Moneda puente</th><th>Ruta</th><th class="r">Profit estimado</th><th class="r">Profit %</th><th class="r">Fees</th><th class="r">Estado</th></tr></thead><tbody>${candRows}</tbody></table>
+      <table style="margin-top:8px"><thead><tr><th>Moneda puente</th><th>Ruta</th><th class="r">Profit estimado</th><th class="r">Profit %</th><th class="r">Fees</th><th>Razón</th><th class="r">Estado</th></tr></thead><tbody>${candRows}</tbody></table>
     </div>`;
 }
 const s2cache = {};

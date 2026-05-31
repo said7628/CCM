@@ -264,7 +264,7 @@ async function main(): Promise<void> {
     const unavailablePairs = requiredPairs.filter((p) => /Par no disponible/.test(statuses[p] ?? ''));
     const blockedPairs = requiredPairs.filter((p) => /Endpoint bloqueado|blocked|restricted|451/i.test(statuses[p] ?? ''));
     const expectedRoutes = triCoins.length;
-    const readyRoutes = state.candidates.filter((c) => c.status === 'Listo' || c.status === 'Ejecutable').length;
+    const readyRoutes = state.candidates.filter((c) => !['Cargando', 'Esperando WebSocket', 'WebSocket pendiente', 'Sin order book todavía', 'Datos incompletos'].includes(c.status)).length;
     const elapsedMs = Date.now() - triSync.startedAt;
     const loading = triSync.rebuilding || (readyPairs < requiredPairs.length && elapsedMs < Number(process.env.TRI_LOADING_GRACE_MS ?? 8000));
     const slow = !loading && waitingPairs.length > 0;

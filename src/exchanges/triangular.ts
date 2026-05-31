@@ -88,11 +88,16 @@ export type TriStatus =
   | 'Listo'
   | 'Ejecutable'
   | 'En espera'
+  | 'No rentable'
+  | 'Fees exceden spread'
+  | 'Debajo del umbral'
+  | 'Datos incompletos'
   | 'Sin pares suficientes'
   | 'Sin profundidad suficiente'
   | 'Endpoint bloqueado'
   | 'Par no disponible'
   | 'Sin order book todavía'
+  | 'Esperando WebSocket'
   | 'WebSocket pendiente'
   | 'Sin liquidez';
 
@@ -160,9 +165,25 @@ function feeToUSDT(pair: string, feePaidInput: number, books: Record<string, Ord
   return feePaidInput;
 }
 
-function candidateStatus(o: TriangularOpportunity): TriStatus {
+function candidateStatus(o: TriangularOpportunity, minNetPct = 0): TriStatus {
   if (!o.legs.every((l) => l.fullyFilled !== false)) return 'Sin liquidez';
-  return o.executable ? 'Ejecutable' : 'Listo';
+  if (o.executable) return 'Ejecutable';
+  if (o.netProfit <= 0) {
+    const grossBeforeFees = o.endUSDT + o.feeCostUSDT - o.startUSDT;
+    return grossBeforeFees > 0 ? 'Fees exceden spread' : 'No rentable';
+  }
+  if (o.netProfitPct < minNetPct) return 'Debajo del umbral';
+  return 'En espera';
+}
+
+function triangularRejectReasons(o: TriangularOpportunity, minNetPct = 0): string[] {
+  const status = o.status ?? candidateStatus(o, minNetPct);
+  if (o.executable) return ['Ruta ejecutable'];
+  if (status === 'No rentable') return ['Profit neto negativo'];
+  if (status === 'Fees exceden spread') return ['Fees exceden spread'];
+  if (status === 'Debajo del umbral') return ['Debajo del umbral'];
+  if (status === 'Sin liquidez') return ['Sin liquidez'];
+  return [status || 'En espera'];
 }
 
 
@@ -210,7 +231,7 @@ function evalDirectionA(
     status: 'En espera',
   };
   opp.executable = fullyFilled && opp.netProfitPct >= params.minNetPct && opp.netProfit > 0;
-  opp.status = candidateStatus(opp);
+  opp.status = candidateStatus(opp, params.minNetPct);
   return opp;
 }
 
@@ -249,7 +270,7 @@ function evalDirectionB(
     status: 'En espera',
   };
   opp.executable = fullyFilled && opp.netProfitPct >= params.minNetPct && opp.netProfit > 0;
-  opp.status = candidateStatus(opp);
+  opp.status = candidateStatus(opp, params.minNetPct);
   return opp;
 }
 
@@ -299,9 +320,9 @@ function statusFromPairStatuses(missingPairs: string[], pairStatuses?: Record<st
     return { status: 'Par no disponible', reasons };
   }
   if (text.includes('cargando')) return { status: 'Cargando', reasons };
-  if (text.includes('websocket pendiente') || text.includes('esperando websocket')) return { status: 'WebSocket pendiente', reasons };
+  if (text.includes('websocket pendiente') || text.includes('esperando websocket')) return { status: 'Esperando WebSocket', reasons };
   if (text.includes('sin liquidez')) return { status: 'Sin liquidez', reasons };
-  if (text.includes('sin order book')) return { status: 'Sin order book todavía', reasons };
+  if (text.includes('sin order book')) return { status: 'Datos incompletos', reasons };
   return { status: 'Sin pares suficientes', reasons };
 }
 
@@ -349,14 +370,15 @@ export function detectTriangularMulti(
         netProfitPct: opp.netProfitPct,
         feeCostUSDT: opp.feeCostUSDT,
         executable: opp.executable,
-        status: opp.status ?? candidateStatus(opp),
+        status: opp.status ?? candidateStatus(opp, params.minNetPct),
+        reasons: triangularRejectReasons(opp, params.minNetPct),
       });
     }
   }
   perCoin.sort((x, y) => y.netProfit - x.netProfit);
   candidates.sort((x, y) => {
     if (x.status !== y.status) {
-      const low = new Set<TriStatus>(['Sin pares suficientes', 'Endpoint bloqueado', 'Par no disponible', 'Sin order book todavía', 'WebSocket pendiente', 'Cargando', 'Sin liquidez']);
+      const low = new Set<TriStatus>(['Sin pares suficientes', 'Endpoint bloqueado', 'Par no disponible', 'Sin order book todavía', 'Esperando WebSocket', 'WebSocket pendiente', 'Cargando', 'Sin liquidez', 'Datos incompletos']);
       if (low.has(x.status)) return 1;
       if (low.has(y.status)) return -1;
     }
@@ -419,7 +441,7 @@ export class TriangularEngine {
     const { best, candidates } = detectTriangularMulti(books, this.params, this.coins, pairStatuses);
     this.lastOpp = best;
     this.lastPerCoin = candidates;
-    const priceable = candidates.filter((c) => c.status === 'Listo' || c.status === 'Ejecutable');
+    const priceable = candidates.filter((c) => !['Cargando', 'Esperando WebSocket', 'WebSocket pendiente', 'Sin order book todavía', 'Datos incompletos'].includes(c.status));
     const executable = candidates.filter((c) => c.executable);
     this.stats.opportunitiesSeen += candidates.length;
     this.stats.executableNow = executable.length;
