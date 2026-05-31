@@ -770,6 +770,16 @@ const SK_RIESGO = `
       <input type="range" id="riskRange" min="0.25" max="4" step="0.05" value="1" />
       <div class="lbls"><span>0.25× (estricto)</span><span><b id="riskVal" style="color:var(--text)">1.00×</b> umbral de ganancia</span><span>4× (laxo)</span></div>
     </div>
+    <div class="riskgrid" style="margin-top:14px">
+      <div class="rcell"><div class="k">Umbral mínimo</div><div class="v num" id="effMinNet">—</div></div>
+      <div class="rcell"><div class="k">Slippage permitido</div><div class="v num" id="effSlip">—</div></div>
+      <div class="rcell"><div class="k">Ventana exposición</div><div class="v num" id="effLatency">—</div></div>
+      <div class="rcell"><div class="k">Tamaño máximo</div><div class="v num" id="effSize">—</div></div>
+      <div class="rcell"><div class="k">Drawdown máximo</div><div class="v num" id="effDD">—</div></div>
+      <div class="rcell"><div class="k">Pérdidas máximas</div><div class="v num" id="effLosses">—</div></div>
+      <div class="rcell"><div class="k">Circuit breaker</div><div class="v" id="effBreaker">Armado</div></div>
+      <div class="rcell"><div class="k">Perfil efectivo</div><div class="v" id="effProfile">Moderado</div></div>
+    </div>
   </div>
   <div class="card pad" style="margin-top:16px">
     <div class="ovl">Latency guard</div><div class="h">Filtro de oportunidades fantasma</div>
@@ -815,9 +825,22 @@ const SK_STRAT = `
     <div id="stratHistory" style="margin-top:6px"></div>
   </div>`;
 
-const SK_BACKTEST = `<div class="card pad"><div class="ovl">Backtesting</div><div class="h">Curva de equity de la sesión</div><div class="muted" style="margin-bottom:8px">Reconstruida desde el histórico persistido de P&L.</div>
-  <div class="ministats" style="margin-bottom:8px"><div class="mini"><div class="k">Puntos</div><div class="v num" id="btPts">0</div></div><div class="mini"><div class="k">P&L final</div><div class="v num" id="btFinal">$0</div></div><div class="mini"><div class="k">Pico equity</div><div class="v num" id="btPeak">$0</div></div></div>
-  <div style="height:300px"><canvas id="btChart"></canvas></div></div>`;
+const SK_BACKTEST = `<div class="card pad"><div class="ovl">Backtesting</div><div class="h">Backtesting por estrategia</div><div class="muted" style="margin-bottom:8px">Reconstruido exclusivamente desde trades/P&L persistidos del modo activo (LIVE o SIM). No mezcla real con simulado ni Cross-Exchange con Triangular.</div>
+  <div class="triflag" id="btMode" style="display:inline-flex;margin-bottom:10px">—</div>
+  <div class="ministats" style="margin-bottom:8px">
+    <div class="mini"><div class="k">Estrategia</div><div class="v" id="btStrategy">Cross-Exchange</div></div>
+    <div class="mini"><div class="k">Trades</div><div class="v num" id="btTrades">0</div></div>
+    <div class="mini"><div class="k">P&L final</div><div class="v num" id="btFinal">$0</div></div>
+    <div class="mini"><div class="k">Pico equity</div><div class="v num" id="btPeak">$0</div></div>
+    <div class="mini"><div class="k">Drawdown máx.</div><div class="v num" id="btDD">$0</div></div>
+    <div class="mini"><div class="k">Win rate</div><div class="v num" id="btWin">0.0%</div></div>
+    <div class="mini"><div class="k">Prom. P&L/trade</div><div class="v num" id="btAvg">$0</div></div>
+    <div class="mini"><div class="k">Mejor / peor</div><div class="v num" id="btBestWorst">$0 / $0</div></div>
+  </div>
+  <div style="height:300px"><canvas id="btChart"></canvas></div>
+  <div class="muted" id="btMsg" style="margin-top:10px"></div>
+  <div class="card pad" style="margin-top:14px;background:rgba(255,255,255,.02)"><div class="h" style="font-size:16px">Resumen por estrategia</div><table style="margin-top:8px"><thead><tr><th>Estrategia</th><th class="r">Estado</th><th class="r">Trades</th><th class="r">P&L final</th><th class="r">DD máx.</th><th class="r">Win rate</th></tr></thead><tbody id="btTable"></tbody></table></div>
+</div>`;
 
 const SK_ALERTS = `<div class="card pad"><div class="sechead"><div><div class="ovl">Alertas</div><div class="h">Eventos del sistema</div></div><div class="muted">Generadas a partir del stream en vivo.</div></div><div id="alertList"></div></div>`;
 
@@ -1413,12 +1436,22 @@ function renderRiesgoView(s) {
   const expMs = (s.bookAgeMs || 0) + (lat.executionLatencyMs || 0);
   setText("lgExp", expMs.toFixed(0) + " ms");
   setText("lgExec", (lat.executionLatencyMs || 0));
+  const eff = s.riskEffective || {}, et = eff.trading || {}, er = eff.risk || {};
+  setText("effMinNet", pct(et.minNetProfitPct || 0));
+  setText("effSlip", pct(et.slippageBufferPct || 0));
+  setText("effLatency", (et.executionLatencyMs || 0) + " ms");
+  setText("effSize", (et.maxTradeSizeBTC || 0).toFixed(4) + " BTC");
+  setText("effDD", usdc(er.maxDrawdownAbs || 0));
+  setText("effLosses", er.maxConsecutiveLosses || 0);
+  const eb = $("effBreaker"); if (eb) { eb.textContent = r.breakerActive ? "Disparado" : "Armado"; eb.className = "v " + (r.breakerActive ? "neg" : "pos"); }
+  const labels = { conservative: "Conservador", moderate: "Moderado", aggressive: "Agresivo", very_aggressive: "Muy agresivo" };
+  setText("effProfile", labels[eff.level] || "Moderado");
   // Risk appetite control
   wireRiskAppetite();
   if (!_riskDragging) syncRiskAppetite(s.riskAppetite != null ? s.riskAppetite : 1);
 }
 
-let _riskWired = false, _riskDragging = false;
+let _riskWired = false, _riskDragging = false, _riskWiredEl = null;
 function syncRiskAppetite(a) {
   const range = $("riskRange"); if (range) range.value = a;
   const val = $("riskVal"); if (val) val.textContent = (Number(a)).toFixed(2) + "×";
@@ -1426,10 +1459,10 @@ function syncRiskAppetite(a) {
   if (seg) seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", Math.abs(Number(b.dataset.a) - a) < 0.001));
 }
 function wireRiskAppetite() {
-  if (_riskWired) return;
   const range = $("riskRange"), seg = $("riskSeg");
   if (!range || !seg) return;
-  _riskWired = true;
+  if (_riskWired && _riskWiredEl === range) return;
+  _riskWired = true; _riskWiredEl = range;
   range.addEventListener("input", () => { _riskDragging = true; const v = Number(range.value); $("riskVal").textContent = v.toFixed(2) + "×"; seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", Math.abs(Number(b.dataset.a) - v) < 0.001)); });
   range.addEventListener("change", () => { ctl("risk", range.value); setTimeout(() => { _riskDragging = false; }, 400); });
   seg.querySelectorAll("button").forEach((b) => b.onclick = () => { const v = Number(b.dataset.a); syncRiskAppetite(v); ctl("risk", v); });
@@ -1623,11 +1656,28 @@ function renderTriResume(s, show) {
 
 /* ===== BACKTESTING ===== */
 function renderBacktestView(s) {
-  const h = s.pnlHistory || [];
-  setText("btPts", h.length);
-  $("btFinal").textContent = usd(h.length ? h[h.length - 1].pnl : 0);
-  $("btPeak").textContent = usdc(h.reduce((a, b) => Math.max(a, b.value || 0), 0));
-  drawPnl($("btChart"), h, true);
+  const bt = s.backtesting || {};
+  const mode = (s.dataMode || s.mode || "sim").toUpperCase();
+  setText("btMode", "Modo " + mode + " · datos persistidos separados");
+  const stratKey = (s.strategy && s.strategy.effective === "triangular") ? "triangular" : "cross";
+  const selected = bt[stratKey] || bt.cross || { status: "empty", equity: [], trades: 0 };
+  const stratName = stratKey === "triangular" ? "Triangular" : "Cross-Exchange";
+  setText("btStrategy", stratName);
+  setText("btTrades", selected.trades || 0);
+  setText("btFinal", usdc(selected.pnlFinal || 0));
+  setText("btPeak", usdc(selected.peakEquity || 0));
+  setText("btDD", usdc(selected.maxDrawdown || 0));
+  setText("btWin", ((selected.winRate || 0) * 100).toFixed(1) + "%");
+  setText("btAvg", usdc(selected.avgPnl || 0));
+  setText("btBestWorst", usdc(selected.bestTrade || 0) + " / " + usdc(selected.worstTrade || 0));
+  setText("btMsg", selected.status === "ready" ? "Curva reconstruida desde operaciones reales persistidas para " + stratName + " en modo " + mode + "." : (selected.message || "Sin operaciones suficientes para backtesting"));
+  drawPnl($("btChart"), (selected.equity || []).map((p) => ({ t: p.t, pnl: p.pnl, value: p.equity })), true, selected.message);
+  const table = $("btTable");
+  if (table) table.innerHTML = ["cross", "triangular"].map((k) => {
+    const m = bt[k] || {}; const name = k === "triangular" ? "Triangular" : "Cross-Exchange";
+    const status = m.status === "ready" ? '<span class="stbadge st-exec">Listo</span>' : '<span class="stbadge st-ghost">Sin datos suficientes</span>';
+    return `<tr><td>${name}</td><td class="r">${status}</td><td class="r num">${m.trades || 0}</td><td class="r num ${m.pnlFinal >= 0 ? "pos" : "neg"}">${usdc(m.pnlFinal || 0)}</td><td class="r num">${usdc(m.maxDrawdown || 0)}</td><td class="r num">${((m.winRate || 0) * 100).toFixed(1)}%</td></tr>`;
+  }).join("");
 }
 
 /* ===== ALERTAS ===== */
@@ -1681,9 +1731,17 @@ function renderConfigView(s) {
 /* ---------- canvas charts (no libs) ---------- */
 function fit(c) { const dpr = window.devicePixelRatio || 1; const w = c.clientWidth, h = c.clientHeight; if (c.width !== w * dpr || c.height !== h * dpr) { c.width = w * dpr; c.height = h * dpr; } const ctx = c.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return { ctx, w, h }; }
 
-function drawPnl(c, hist, big) {
+function drawPnl(c, hist, big, emptyMsg) {
   if (!c) return; const { ctx, w, h } = fit(c); ctx.clearRect(0, 0, w, h);
-  if (!hist || hist.length < 2) return;
+  if (!hist || hist.length < 2) {
+    const css = getComputedStyle(document.documentElement);
+    ctx.strokeStyle = css.getPropertyValue("--line-soft").trim(); ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]); ctx.strokeRect(12, 12, Math.max(0, w - 24), Math.max(0, h - 24)); ctx.setLineDash([]);
+    ctx.fillStyle = css.getPropertyValue("--dim").trim(); ctx.font = "13px Manrope"; ctx.textAlign = "center";
+    ctx.fillText(emptyMsg || "Sin operaciones suficientes para backtesting", w / 2, h / 2 - 8);
+    ctx.font = "11px Manrope"; ctx.fillText("Se necesitan al menos 2 trades persistidos del modo y estrategia seleccionados.", w / 2, h / 2 + 14); ctx.textAlign = "left";
+    return;
+  }
   const ys = hist.map((p) => p.pnl); const min = Math.min(0, ...ys), max = Math.max(1, ...ys); const pad = big ? 14 : 6;
   const x = (i) => pad + (i / (hist.length - 1)) * (w - 2 * pad);
   const y = (v) => h - pad - ((v - min) / (max - min || 1)) * (h - 2 * pad);

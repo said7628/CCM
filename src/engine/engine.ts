@@ -26,6 +26,79 @@ import { WalletManager } from './wallet';
 import { RiskManager, type RiskState } from './risk';
 import { VolatilityEstimator } from './latency';
 
+
+export type RiskAppetiteLevel = 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
+
+export interface EffectiveRiskSettings {
+  appetite: number;
+  level: RiskAppetiteLevel;
+  label: string;
+  trading: TradingConfig;
+  risk: RiskConfig;
+}
+
+function riskLevel(appetite: number): RiskAppetiteLevel {
+  if (appetite < 0.75) return 'conservative';
+  if (appetite < 1.75) return 'moderate';
+  if (appetite < 2.75) return 'aggressive';
+  return 'very_aggressive';
+}
+
+function clampPositive(n: number, fallback: number): number {
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+export function effectiveRiskSettings(
+  trading: TradingConfig,
+  risk: RiskConfig,
+  appetiteRaw: number,
+): EffectiveRiskSettings {
+  const appetite = Number.isFinite(appetiteRaw) ? Math.min(4, Math.max(0.25, appetiteRaw)) : 1;
+  const level = riskLevel(appetite);
+  const t: TradingConfig = { ...trading };
+  const r: RiskConfig = { ...risk };
+
+  if (level === 'conservative') {
+    t.minNetProfitPct = Math.max(trading.minNetProfitPct * 2.5, 0.00125);
+    t.minNetProfitAbs = Math.max(trading.minNetProfitAbs * 2, 2);
+    t.maxTradeSizeBTC = Math.min(trading.maxTradeSizeBTC, 0.02);
+    t.slippageBufferPct = Math.min(trading.slippageBufferPct, 0.0001);
+    t.latencyPenaltyPct = Math.max(trading.latencyPenaltyPct, 0.00015);
+    t.executionLatencyMs = Math.min(trading.executionLatencyMs, 100);
+    t.latencyRiskZ = Math.max(trading.latencyRiskZ, 2.8);
+    r.maxConsecutiveLosses = Math.min(risk.maxConsecutiveLosses, 2);
+    r.maxDrawdownAbs = Math.min(risk.maxDrawdownAbs, 200);
+    r.circuitBreakerCooldownMs = Math.max(risk.circuitBreakerCooldownMs, 60_000);
+    r.maxInventorySkewBTC = Math.min(risk.maxInventorySkewBTC, 0.25);
+  } else if (level === 'aggressive') {
+    t.minNetProfitPct = clampPositive(trading.minNetProfitPct * 0.6, trading.minNetProfitPct);
+    t.minNetProfitAbs = clampPositive(trading.minNetProfitAbs * 0.6, trading.minNetProfitAbs);
+    t.maxTradeSizeBTC = trading.maxTradeSizeBTC * 1.5;
+    t.slippageBufferPct = Math.max(trading.slippageBufferPct, 0.00035);
+    t.latencyPenaltyPct = Math.max(trading.latencyPenaltyPct * 0.75, 0.00005);
+    t.executionLatencyMs = Math.max(trading.executionLatencyMs, 250);
+    t.latencyRiskZ = Math.min(trading.latencyRiskZ, 1.4);
+    r.maxConsecutiveLosses = Math.max(risk.maxConsecutiveLosses, 7);
+    r.maxDrawdownAbs = Math.max(risk.maxDrawdownAbs, 1_000);
+    r.circuitBreakerCooldownMs = Math.min(risk.circuitBreakerCooldownMs, 20_000);
+    r.maxInventorySkewBTC = Math.max(risk.maxInventorySkewBTC, 3);
+  } else if (level === 'very_aggressive') {
+    t.minNetProfitPct = clampPositive(trading.minNetProfitPct * 0.3, trading.minNetProfitPct);
+    t.minNetProfitAbs = clampPositive(trading.minNetProfitAbs * 0.3, trading.minNetProfitAbs);
+    t.maxTradeSizeBTC = trading.maxTradeSizeBTC * 2;
+    t.slippageBufferPct = Math.max(trading.slippageBufferPct, 0.0006);
+    t.latencyPenaltyPct = Math.max(trading.latencyPenaltyPct * 0.5, 0.000025);
+    t.executionLatencyMs = Math.max(trading.executionLatencyMs, 400);
+    t.latencyRiskZ = Math.min(trading.latencyRiskZ, 1.0);
+    r.maxConsecutiveLosses = Math.max(risk.maxConsecutiveLosses, 10);
+    r.maxDrawdownAbs = Math.max(risk.maxDrawdownAbs, 2_000);
+    r.circuitBreakerCooldownMs = Math.min(risk.circuitBreakerCooldownMs, 15_000);
+    r.maxInventorySkewBTC = Math.max(risk.maxInventorySkewBTC, 5);
+  }
+
+  return { appetite, level, label: level.replace('_', ' '), trading: t, risk: r };
+}
+
 export interface EngineDeps {
   fees: Record<string, ExchangeFees>;
   trading: TradingConfig;
@@ -113,6 +186,7 @@ export class ArbitrageEngine {
    * thinner edges (more trades, more risk); <1 tightens them. Bounded for safety.
    */
   private riskAppetite = 1;
+  private effective: EffectiveRiskSettings;
 
   constructor(
     private wallets: WalletManager,
@@ -121,7 +195,8 @@ export class ArbitrageEngine {
     // Baseline equity for drawdown tracking; the real mark-to-market peak is
     // refined on every trade via risk.onTrade().
     const initialEquity = wallets.totalQuote();
-    this.risk = new RiskManager(deps.risk, initialEquity);
+    this.effective = effectiveRiskSettings(deps.trading, deps.risk, this.riskAppetite);
+    this.risk = new RiskManager(this.effective.risk, initialEquity);
     this.vol = new VolatilityEstimator(deps.trading.volatilityPctPerSec);
   }
 
@@ -134,10 +209,22 @@ export class ArbitrageEngine {
   }
   /** Set risk appetite (0.25..4). Higher = thinner edges accepted = more aggressive. */
   setRiskAppetite(a: number): void {
-    if (Number.isFinite(a)) this.riskAppetite = Math.min(4, Math.max(0.25, a));
+    if (!Number.isFinite(a)) return;
+    const next = Math.min(4, Math.max(0.25, a));
+    const prevLevel = this.effective.level;
+    this.riskAppetite = next;
+    this.effective = effectiveRiskSettings(this.deps.trading, this.deps.risk, this.riskAppetite);
+    this.risk.setConfig(this.effective.risk);
+    if (this.effective.level !== prevLevel) {
+      console.log(`[risk] appetite changed to ${this.effective.level}`);
+    }
+    console.log(`[risk] thresholds updated: minNet=${this.effective.trading.minNetProfitPct}, slippage=${this.effective.trading.slippageBufferPct}, latencyWindow=${this.effective.trading.executionLatencyMs}`);
   }
   getRiskAppetite(): number {
     return this.riskAppetite;
+  }
+  getEffectiveRiskSettings(): EffectiveRiskSettings {
+    return { ...this.effective, trading: { ...this.effective.trading }, risk: { ...this.effective.risk } };
   }
 
   tick(allBooks: OrderBook[]): TickResult {
@@ -157,17 +244,9 @@ export class ArbitrageEngine {
 
     const markPrice = computeMark(books);
 
-    // Risk appetite scales the profit gates: higher appetite -> lower thresholds
-    // -> thinner edges accepted. We pass an adjusted config to detection only;
-    // the persisted defaults are untouched.
-    const tradingForTick =
-      this.riskAppetite === 1
-        ? this.deps.trading
-        : {
-            ...this.deps.trading,
-            minNetProfitPct: this.deps.trading.minNetProfitPct / this.riskAppetite,
-            minNetProfitAbs: this.deps.trading.minNetProfitAbs / this.riskAppetite,
-          };
+    // Risk appetite selects the effective thresholds, size limits, slippage and
+    // latency assumptions for this tick. The persisted base defaults are untouched.
+    const tradingForTick = this.effective.trading;
 
     // Feed the live volatility estimator with each venue's current mid, so the
     // latency-risk model uses *current* market conditions, not a constant.
@@ -257,7 +336,7 @@ export class ArbitrageEngine {
         volatilityPctPerSec: this.vol.pctPerSec(),
         volatilityLive: this.vol.isLive(),
         ghostsRejected,
-        executionLatencyMs: this.deps.trading.executionLatencyMs,
+        executionLatencyMs: tradingForTick.executionLatencyMs,
       },
     };
   }
