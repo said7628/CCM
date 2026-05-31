@@ -128,7 +128,7 @@ export interface RiskConfig {
 
 export const DEFAULT_TRADING: TradingConfig = {
   symbol: 'BTC/USDT',
-  exchanges: ['binance', 'kraken'],
+  exchanges: ['binance', 'okx', 'kraken'],
   minNetProfitPct: 0.0005, // 0.05%
   minNetProfitAbs: 1, // $1
   maxTradeSizeBTC: 1.0,
@@ -156,6 +156,7 @@ export const DEFAULT_RISK: RiskConfig = {
  *  directions without immediately exhausting one-sided inventory. */
 export const INITIAL_BALANCES: Record<string, { base: number; quote: number }> = {
   binance: { base: 5.0, quote: 350_000 },
+  okx: { base: 5.0, quote: 350_000 },
   kraken: { base: 5.0, quote: 350_000 },
 };
 

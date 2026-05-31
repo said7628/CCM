@@ -815,6 +815,10 @@ const SK_RIESGO = `
       <input type="range" id="riskRange" min="0.25" max="4" step="0.05" value="1" />
       <div class="lbls"><span>0.25× (estricto)</span><span><b id="riskVal" style="color:var(--text)">1.00×</b> umbral de ganancia</span><span>4× (laxo)</span></div>
     </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <span class="muted" style="font-size:11.5px">Perfil por defecto: <b style="color:var(--text-2)">Moderado · 1.00×</b> — equilibrio entre frecuencia de operación y disciplina de costos.</span>
+      <button class="btnlink" id="riskResetBtn" title="Restablece el apetito de riesgo al valor por defecto recomendado">↺ Restablecer por defecto</button>
+    </div>
     <div class="riskgrid" style="margin-top:14px">
       <div class="rcell"><div class="k">Umbral mínimo</div><div class="v num" id="effMinNet">—</div></div>
       <div class="rcell"><div class="k">Slippage permitido</div><div class="v num" id="effSlip">—</div></div>
@@ -1497,6 +1501,9 @@ function renderRiesgoView(s) {
 }
 
 let _riskWired = false, _riskDragging = false, _riskWiredEl = null;
+/** Recommended default risk appetite (1.0× = "Moderado": trades actively while
+ *  keeping the cost/latency discipline that the jury rewards). */
+const DEFAULT_APPETITE = 1;
 function syncRiskAppetite(a) {
   const range = $("riskRange"); if (range) range.value = a;
   const val = $("riskVal"); if (val) val.textContent = (Number(a)).toFixed(2) + "×";
@@ -1511,6 +1518,15 @@ function wireRiskAppetite() {
   range.addEventListener("input", () => { _riskDragging = true; const v = Number(range.value); $("riskVal").textContent = v.toFixed(2) + "×"; seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", Math.abs(Number(b.dataset.a) - v) < 0.001)); });
   range.addEventListener("change", () => { ctl("risk", range.value); setTimeout(() => { _riskDragging = false; }, 400); });
   seg.querySelectorAll("button").forEach((b) => b.onclick = () => { const v = Number(b.dataset.a); syncRiskAppetite(v); ctl("risk", v); });
+  const reset = $("riskResetBtn");
+  if (reset) reset.onclick = () => {
+    _riskDragging = true;                 // suppress live-sync clobber while we apply
+    syncRiskAppetite(DEFAULT_APPETITE);   // snap UI immediately
+    ctl("risk", DEFAULT_APPETITE);        // persist on the server
+    const orig = reset.textContent;
+    reset.textContent = "✓ Restablecido";
+    setTimeout(() => { reset.textContent = orig; _riskDragging = false; }, 900);
+  };
 }
 
 /* ===== ESTRATEGIAS ===== */

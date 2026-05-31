@@ -155,10 +155,27 @@ async function buildSource(
       return new LiveSource(trading.exchanges, trading.symbol, trading.orderBookDepth, trading.pollIntervalMs);
     }
     case 'sim-stream':
-      return new SimulatedSource({ exchanges: trading.exchanges, symbol: trading.symbol, streamIntervalMs: intervalMs });
+      return new SimulatedSource({ exchanges: trading.exchanges, symbol: trading.symbol, streamIntervalMs: intervalMs, ...simTuning() });
     default:
-      return new SimulatedSource({ exchanges: trading.exchanges, symbol: trading.symbol });
+      return new SimulatedSource({ exchanges: trading.exchanges, symbol: trading.symbol, ...simTuning() });
   }
+}
+
+/** Optional env overrides for the simulator's divergence behaviour. Anything
+ *  omitted falls back to the source's built-in (already lively) defaults. */
+function simTuning(): { divergenceChance?: number; edgeMinPct?: number; edgeMaxPct?: number; volatility?: number } {
+  const numOpt = (key: string): number | undefined => {
+    const v = process.env[key];
+    if (v === undefined) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const out: { divergenceChance?: number; edgeMinPct?: number; edgeMaxPct?: number; volatility?: number } = {};
+  const dc = numOpt('SIM_DIVERGENCE_CHANCE'); if (dc !== undefined) out.divergenceChance = dc;
+  const lo = numOpt('SIM_EDGE_MIN_PCT'); if (lo !== undefined) out.edgeMinPct = lo;
+  const hi = numOpt('SIM_EDGE_MAX_PCT'); if (hi !== undefined) out.edgeMaxPct = hi;
+  const vol = numOpt('SIM_VOLATILITY'); if (vol !== undefined) out.volatility = vol;
+  return out;
 }
 
 function bookView(b: OrderBook, depth = 9): object {
@@ -195,7 +212,7 @@ function oppView(o: Opportunity): object {
 async function main(): Promise<void> {
   const { trading, risk } = loadConfig();
   let dataMode: 'live' | 'sim' = ((process.env.SOURCE ?? '').startsWith('live') ? 'live' : 'sim');
-  const tickIntervalMs = Number(process.env.INTERVAL_MS ?? 250);
+  const tickIntervalMs = Number(process.env.INTERVAL_MS ?? 150);
 
   let wallets = new WalletManager(buildBalances(trading.exchanges));
   let engine = new ArbitrageEngine(wallets, { fees: EXCHANGE_FEES, trading, risk });

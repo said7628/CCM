@@ -46,16 +46,32 @@ interface SimConfig {
   seed?: number;
   /** If set, the source self-advances and emits 'update' on this interval (ms). */
   streamIntervalMs?: number;
+  /**
+   * Magnitude of an injected divergence, as a fraction of the base price, drawn
+   * uniformly in [edgeMinPct, edgeMaxPct]. The range is deliberately set to
+   * STRADDLE the typical round-trip cost hurdle (~0.2%–0.4% after fees +
+   * slippage + latency): the thin edges below the hurdle get rejected by the
+   * engine (so the cost-awareness story is visible in the UI), while the fatter
+   * ones clear it and execute — keeping the dashboard actively trading instead
+   * of sitting idle. Tunable via SIM_EDGE_MIN_PCT / SIM_EDGE_MAX_PCT.
+   */
+  edgeMinPct: number;
+  edgeMaxPct: number;
 }
 
 const DEFAULT_SIM: SimConfig = {
-  exchanges: ['binance', 'kraken'],
+  exchanges: ['binance', 'okx', 'kraken'],
   symbol: 'BTC/USDT',
   basePrice: 70_000,
   volatility: 0.0004,
-  divergenceChance: 0.25,
+  // Inject a divergence more often so the opportunity feed stays lively.
+  divergenceChance: 0.35,
   depth: 12,
   seed: 42,
+  // 0.10%..0.45%: spans the fee hurdle so we get a healthy mix of executed
+  // trades and instructive rejections rather than a near-empty log.
+  edgeMinPct: 0.0010,
+  edgeMaxPct: 0.0045,
 };
 
 /** Tiny deterministic PRNG (mulberry32) so simulated runs are reproducible. */
@@ -134,7 +150,8 @@ export class SimulatedSource extends EventEmitter implements MarketDataSource {
 
     // Occasionally inject a clean divergence between the first two exchanges.
     if (this.rng() < divergenceChance && exchanges.length >= 2) {
-      const edge = this.cfg.basePrice * (0.0008 + this.rng() * 0.0015); // 0.08%..0.23%
+      const span = Math.max(0, this.cfg.edgeMaxPct - this.cfg.edgeMinPct);
+      const edge = this.cfg.basePrice * (this.cfg.edgeMinPct + this.rng() * span);
       // Push one exchange's mid up so its bid clears the other's ask. The lifted
       // venue alternates, so both trade directions occur over time.
       const lifted = exchanges[this.rng() < 0.5 ? 0 : 1];
