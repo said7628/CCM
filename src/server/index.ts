@@ -187,6 +187,9 @@ function bookView(b: OrderBook, depth = 9): object {
     bestAsk: b.asks[0]?.price ?? 0,
     bids: slice(b.bids),
     asks: slice(b.asks),
+    // Age (ms) of this venue's data at render time. ~0 in sim and for healthy
+    // live feeds; grows when a live socket goes mute so the UI can flag it.
+    ageMs: b.timestamp > 0 ? Math.max(0, Date.now() - b.timestamp) : 0,
   };
 }
 

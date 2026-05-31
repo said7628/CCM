@@ -904,10 +904,18 @@ function exchangeCard(b, mark) {
   const spread = b.bestAsk - b.bestBid;
   const spreadPct = b.bestBid ? spread / b.bestBid : 0;
   const fill = mark ? Math.min(100, Math.max(8, (mid / mark) * 95)) : 60;
+  // Honest freshness badge: green "Live" only if data arrived recently; otherwise
+  // grey "hace Xs" so a frozen/mute feed is obvious instead of looking healthy.
+  const age = Number(b.ageMs || 0);
+  const fresh = age < 5000;
+  const ageLbl = age < 1000 ? "ahora" : age < 60000 ? `hace ${Math.round(age / 1000)}s` : `hace ${Math.round(age / 60000)}m`;
+  const badge = fresh
+    ? `<span class="livedot"><span class="dot live"></span> Live</span>`
+    : `<span class="livedot" style="color:var(--dim)"><span class="dot off"></span> ${ageLbl}</span>`;
   return `<div class="excard">
     <div class="top"><div class="exlogo" style="background:${m.c}">${m.n[0]}</div>
       <div><div class="en">${m.n}</div><div class="et">BTC spot</div></div>
-      <span class="livedot"><span class="dot live"></span> Live</span></div>
+      ${badge}</div>
     <div class="price num">${usd(mid)}</div>
     <div class="pbar"><i style="width:${fill}%"></i></div>
     <div class="ba">
@@ -1245,13 +1253,13 @@ function renderOpsView(s) {
 const CONNECTORS = [
   ["binance", "El exchange de mayor volumen del mundo.", "WebSocket"],
   ["kraken", "Uno de los más antiguos y confiables.", "WebSocket"],
-  ["coinbase", "Exchange regulado del mercado estadounidense.", "REST"],
-  ["okx", "Alto volumen, especialmente en mercados asiáticos.", "REST"],
-  ["bitfinex", "Plataforma con alta liquidez institucional.", "REST"],
-  ["kucoin", "Amplia variedad de pares y mercados.", "REST"],
-  ["gate", "Mayor número de activos listados.", "REST"],
-  ["bitstamp", "Exchange europeo con larga trayectoria.", "REST"],
-  ["gemini", "Exchange regulado con datos institucionales.", "REST"],
+  ["coinbase", "Exchange regulado del mercado estadounidense.", "WebSocket"],
+  ["okx", "Alto volumen, especialmente en mercados asiáticos.", "WebSocket"],
+  ["bitfinex", "Plataforma con alta liquidez institucional.", "WebSocket"],
+  ["kucoin", "Amplia variedad de pares y mercados.", "WebSocket"],
+  ["gate", "Mayor número de activos listados.", "WebSocket"],
+  ["bitstamp", "Exchange europeo con larga trayectoria.", "WebSocket"],
+  ["gemini", "Exchange regulado con datos institucionales.", "WebSocket"],
 ];
 // Short descriptors for the candidate coins shown in the triangular coin panel.
 const COIN_DESC = {
@@ -1281,7 +1289,7 @@ function renderExchangesView(s) {
   const live = new Set((s.books || []).map((b) => b.exchange));
   $("exSupport").innerHTML = CONNECTORS.map(([id, desc, proto]) => {
     const on = live.has(id);
-    return `<div class="alertitem"><div class="ai" style="background:${exMeta(id).c}1f;color:${exMeta(id).c}">${exMeta(id).n[0]}</div><div><div class="at">${exMeta(id).n} ${on ? `<span class="stbadge st-exec" style="margin-left:4px">live</span>` : ""}</div><div class="as">${desc} · API ${proto}</div></div></div>`;
+    return `<div class="alertitem"><div class="ai" style="background:${exMeta(id).c}1f;color:${exMeta(id).c}">${exMeta(id).n[0]}</div><div><div class="at">${exMeta(id).n} ${on ? `<span class="stbadge st-exec" style="margin-left:4px">live</span>` : ""}</div><div class="as">${desc} · ${proto}</div></div></div>`;
   }).join("");
 }
 

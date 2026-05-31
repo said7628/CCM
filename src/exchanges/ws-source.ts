@@ -25,6 +25,9 @@ export interface WsClient {
   stop(): Promise<void>;
   isReady(): boolean;
   getOrderBook(): OrderBook;
+  /** Epoch ms of the last applied message; 0 until the first update. Used by the
+   *  freshness watchdog to detect a silently-dropped (connected but mute) feed. */
+  lastMessageAt: number;
 }
 
 /** Factory: every venue we support over a native WebSocket connector. */
@@ -56,6 +59,9 @@ export function createWsClient(id: string, symbol: string, depth: number, onUpda
 export class WebSocketSource extends EventEmitter implements MarketDataSource {
   readonly name = 'websocket';
   private clients: WsClient[] = [];
+  private watchdog?: NodeJS.Timeout;
+  /** Reconnect a client if it has gone this long with no message after first sync. */
+  private readonly staleMs = Number(process.env.WS_STALE_MS ?? 12_000);
 
   constructor(exchangeIds: string[], symbol: string, depth: number) {
     super();
@@ -71,8 +77,32 @@ export class WebSocketSource extends EventEmitter implements MarketDataSource {
 
   async start(): Promise<void> {
     await Promise.all(this.clients.map((c) => c.start()));
+    // Freshness watchdog: a WebSocket can stay "open" yet stop delivering data
+    // (server-side throttle, half-open socket, regional hiccup). The book then
+    // freezes at its last value and looks live but isn't. Every few seconds we
+    // check each client; if it synced once but has since gone quiet past the
+    // stale threshold, we bounce it (stop+start) to force a fresh reconnect.
+    this.watchdog = setInterval(() => {
+      const now = Date.now();
+      for (const c of this.clients) {
+        if (c.lastMessageAt > 0 && now - c.lastMessageAt > this.staleMs) {
+          console.warn(`[ws] ${c.id} stale for ${now - c.lastMessageAt}ms — reconnecting`);
+          void (async () => {
+            try {
+              await c.stop();
+              await c.start();
+            } catch (e) {
+              console.error(`[ws] ${c.id} reconnect failed: ${(e as Error).message}`);
+            }
+          })();
+        }
+      }
+    }, Math.max(3000, Math.floor(this.staleMs / 2)));
+    if (typeof this.watchdog.unref === 'function') this.watchdog.unref();
   }
   async stop(): Promise<void> {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = undefined;
     await Promise.all(this.clients.map((c) => c.stop()));
   }
 

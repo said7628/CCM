@@ -128,7 +128,10 @@ export interface RiskConfig {
 
 export const DEFAULT_TRADING: TradingConfig = {
   symbol: 'BTC/USDT',
-  exchanges: ['binance', 'okx', 'kraken'],
+  // All nine venues have a native WebSocket connector, so we connect all of them
+  // (they all stream — none are REST). Which ones the engine actually trades on
+  // is a separate, user-toggleable choice (see DEFAULT_PREFS.activeExchanges).
+  exchanges: ['binance', 'okx', 'kraken', 'coinbase', 'bitfinex', 'kucoin', 'gate', 'bitstamp', 'gemini'],
   minNetProfitPct: 0.0005, // 0.05%
   minNetProfitAbs: 1, // $1
   maxTradeSizeBTC: 1.0,

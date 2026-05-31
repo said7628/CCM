@@ -34,7 +34,10 @@ export interface EnginePrefs {
 }
 
 const DEFAULT_PREFS: EnginePrefs = {
-  activeExchanges: null,
+  // All nine venues are CONNECTED (they all stream over WebSocket), but by
+  // default the engine only TRADES on these three — the most reliable, lowest-fee
+  // pair plus Kraken. The rest show up as toggles the user can switch on.
+  activeExchanges: ['binance', 'okx', 'kraken'],
   riskAppetite: 1,
   strategy: 'cross',
   triExchange: null,
