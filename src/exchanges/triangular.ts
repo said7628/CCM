@@ -30,12 +30,14 @@ export const TRI_BASE_COINS = ['BTC', 'USDT'] as const;
 export const DEFAULT_TRI_COINS = ['ETH', 'SOL', 'XRP', 'BNB', 'ADA', 'DOGE', 'LTC', 'USDC', 'EUR'] as const;
 
 /** Sensible default ACTIVE candidate set (kept modest so LIVE polling stays light). */
-export const DEFAULT_TRI_COINS_ACTIVE = ['ETH', 'SOL', 'XRP', 'BNB'] as const;
+export const DEFAULT_TRI_COINS_ACTIVE = DEFAULT_TRI_COINS;
 
 export interface TriLeg {
   pair: string;
   side: 'buy' | 'sell';
   price: number;
+  fullyFilled?: boolean;
+  levelsConsumed?: number;
 }
 export interface TriangularOpportunity {
   exchange: string;
@@ -53,6 +55,7 @@ export interface TriangularOpportunity {
   /** Taker fee fraction used for this loop (0.001 = 0.1%). */
   takerFee: number;
   executable: boolean;
+  status?: 'Ejecutable' | 'En espera' | 'Sin pares suficientes' | 'Sin profundidad suficiente';
 }
 
 export interface TriangularTrade {
@@ -78,75 +81,172 @@ export interface TriParams {
   minNetPct: number;
 }
 
+type TriStatus = 'Ejecutable' | 'En espera' | 'Sin pares suficientes' | 'Sin profundidad suficiente';
+
+interface ConversionResult {
+  out: number;
+  feePaidInput: number;
+  fullyFilled: boolean;
+  avgPrice: number;
+  levelsConsumed: number;
+}
+
+function buyBaseWithQuote(book: OrderBook, quoteIn: number, fee: number): ConversionResult {
+  let quoteLeft = quoteIn;
+  let baseGross = 0;
+  let spent = 0;
+  let levelsConsumed = 0;
+  for (const level of book.asks) {
+    if (quoteLeft <= 1e-9) break;
+    const takeBase = Math.min(level.amount, quoteLeft / level.price);
+    if (takeBase <= 0) continue;
+    const quote = takeBase * level.price;
+    baseGross += takeBase;
+    spent += quote;
+    quoteLeft -= quote;
+    levelsConsumed += 1;
+  }
+  return {
+    out: baseGross * (1 - fee),
+    feePaidInput: spent * fee,
+    fullyFilled: quoteLeft <= Math.max(1e-9, quoteIn * 1e-9),
+    avgPrice: baseGross > 0 ? spent / baseGross : 0,
+    levelsConsumed,
+  };
+}
+
+function sellBaseForQuote(book: OrderBook, baseIn: number, fee: number): ConversionResult {
+  let baseLeft = baseIn;
+  let quoteGross = 0;
+  let sold = 0;
+  let levelsConsumed = 0;
+  for (const level of book.bids) {
+    if (baseLeft <= 1e-12) break;
+    const takeBase = Math.min(level.amount, baseLeft);
+    if (takeBase <= 0) continue;
+    quoteGross += takeBase * level.price;
+    sold += takeBase;
+    baseLeft -= takeBase;
+    levelsConsumed += 1;
+  }
+  return {
+    out: quoteGross * (1 - fee),
+    feePaidInput: quoteGross * fee,
+    fullyFilled: baseLeft <= Math.max(1e-12, baseIn * 1e-9),
+    avgPrice: sold > 0 ? quoteGross / sold : 0,
+    levelsConsumed,
+  };
+}
+
+function feeToUSDT(pair: string, feePaidInput: number, books: Record<string, OrderBook>): number {
+  if (pair.endsWith('/USDT')) return feePaidInput;
+  if (pair.endsWith('/BTC')) return feePaidInput * (best(books, 'BTC/USDT')?.bid ?? 0);
+  return feePaidInput;
+}
+
+function candidateStatus(o: TriangularOpportunity): TriStatus {
+  if (!o.legs.every((l) => l.fullyFilled !== false)) return 'Sin profundidad suficiente';
+  return o.executable ? 'Ejecutable' : 'En espera';
+}
+
+
 /** The three pairs that make up the loop for a given candidate coin. */
 export function pairsForCoin(coin: string): [string, string, string] {
   return ['BTC/USDT', `${coin}/USDT`, `${coin}/BTC`];
 }
 
-/**
- * Evaluate both loop directions for ONE candidate coin at top-of-book and
- * return the better one. Returns null if the three pairs aren't all present.
- * BTC and USDT are the mandatory anchors; `coin` is the third leg.
- */
-export function evalCoinTriangle(
-  books: Record<string, OrderBook>,
-  coin: string,
-  params: TriParams,
+function requiredPairsFor(coin: string): string[] {
+  return pairsForCoin(coin);
+}
+
+function evalDirectionA(
+  books: Record<string, OrderBook>, coin: string, params: TriParams,
 ): TriangularOpportunity | null {
-  const btcusdt = best(books, 'BTC/USDT');
-  const coinusdt = best(books, `${coin}/USDT`);
-  const coinbtc = best(books, `${coin}/BTC`);
-  if (!btcusdt || !coinusdt || !coinbtc) return null;
-
-  const f = 1 - params.takerFee;
+  const btcusdt = books['BTC/USDT'];
+  const coinbtc = books[`${coin}/BTC`];
+  const coinusdt = books[`${coin}/USDT`];
+  if (!btcusdt || !coinbtc || !coinusdt) return null;
   const start = params.notionalUSDT;
-  const feeCostUSDT = start * (1 - f * f * f); // ≈ total taker fees across 3 legs
-
-  // Direction A: USDT→BTC (buy BTC/USDT) → COIN (buy COIN/BTC) → USDT (sell COIN/USDT)
-  const endA = (start / btcusdt.ask) * f / coinbtc.ask * f * coinusdt.bid * f;
-  // Direction B: USDT→COIN (buy COIN/USDT) → BTC (sell COIN/BTC) → USDT (sell BTC/USDT)
-  const endB = (start / coinusdt.ask) * f * coinbtc.bid * f * btcusdt.bid * f;
-
-  const a: TriangularOpportunity = {
+  const leg1 = buyBaseWithQuote(btcusdt, start, params.takerFee);
+  const leg2 = buyBaseWithQuote(coinbtc, leg1.out, params.takerFee);
+  const leg3 = sellBaseForQuote(coinusdt, leg2.out, params.takerFee);
+  const feeCostUSDT = leg1.feePaidInput + feeToUSDT(`${coin}/BTC`, leg2.feePaidInput, books) + leg3.feePaidInput;
+  const endUSDT = leg3.out;
+  const fullyFilled = leg1.fullyFilled && leg2.fullyFilled && leg3.fullyFilled;
+  const opp: TriangularOpportunity = {
     exchange: params.exchange,
     coin,
     path: `USDT→BTC→${coin}→USDT`,
     direction: 'A',
     legs: [
-      { pair: 'BTC/USDT', side: 'buy', price: btcusdt.ask },
-      { pair: `${coin}/BTC`, side: 'buy', price: coinbtc.ask },
-      { pair: `${coin}/USDT`, side: 'sell', price: coinusdt.bid },
+      { pair: 'BTC/USDT', side: 'buy', price: leg1.avgPrice || best(books, 'BTC/USDT')?.ask || 0, fullyFilled: leg1.fullyFilled, levelsConsumed: leg1.levelsConsumed },
+      { pair: `${coin}/BTC`, side: 'buy', price: leg2.avgPrice || best(books, `${coin}/BTC`)?.ask || 0, fullyFilled: leg2.fullyFilled, levelsConsumed: leg2.levelsConsumed },
+      { pair: `${coin}/USDT`, side: 'sell', price: leg3.avgPrice || best(books, `${coin}/USDT`)?.bid || 0, fullyFilled: leg3.fullyFilled, levelsConsumed: leg3.levelsConsumed },
     ],
     startUSDT: start,
-    endUSDT: endA,
-    netProfit: endA - start,
-    netProfitPct: (endA - start) / start,
+    endUSDT,
+    netProfit: endUSDT - start,
+    netProfitPct: (endUSDT - start) / start,
     feeCostUSDT,
     takerFee: params.takerFee,
     executable: false,
+    status: 'En espera',
   };
-  const b: TriangularOpportunity = {
+  opp.executable = fullyFilled && opp.netProfitPct >= params.minNetPct && opp.netProfit > 0;
+  opp.status = candidateStatus(opp);
+  return opp;
+}
+
+function evalDirectionB(
+  books: Record<string, OrderBook>, coin: string, params: TriParams,
+): TriangularOpportunity | null {
+  const btcusdt = books['BTC/USDT'];
+  const coinbtc = books[`${coin}/BTC`];
+  const coinusdt = books[`${coin}/USDT`];
+  if (!btcusdt || !coinbtc || !coinusdt) return null;
+  const start = params.notionalUSDT;
+  const leg1 = buyBaseWithQuote(coinusdt, start, params.takerFee);
+  const leg2 = sellBaseForQuote(coinbtc, leg1.out, params.takerFee);
+  const leg3 = sellBaseForQuote(btcusdt, leg2.out, params.takerFee);
+  const feeCostUSDT = leg1.feePaidInput + feeToUSDT('BTC/USDT', leg2.feePaidInput, books) + leg3.feePaidInput;
+  const endUSDT = leg3.out;
+  const fullyFilled = leg1.fullyFilled && leg2.fullyFilled && leg3.fullyFilled;
+  const opp: TriangularOpportunity = {
     exchange: params.exchange,
     coin,
     path: `USDT→${coin}→BTC→USDT`,
     direction: 'B',
     legs: [
-      { pair: `${coin}/USDT`, side: 'buy', price: coinusdt.ask },
-      { pair: `${coin}/BTC`, side: 'sell', price: coinbtc.bid },
-      { pair: 'BTC/USDT', side: 'sell', price: btcusdt.bid },
+      { pair: `${coin}/USDT`, side: 'buy', price: leg1.avgPrice || best(books, `${coin}/USDT`)?.ask || 0, fullyFilled: leg1.fullyFilled, levelsConsumed: leg1.levelsConsumed },
+      { pair: `${coin}/BTC`, side: 'sell', price: leg2.avgPrice || best(books, `${coin}/BTC`)?.bid || 0, fullyFilled: leg2.fullyFilled, levelsConsumed: leg2.levelsConsumed },
+      { pair: 'BTC/USDT', side: 'sell', price: leg3.avgPrice || best(books, 'BTC/USDT')?.bid || 0, fullyFilled: leg3.fullyFilled, levelsConsumed: leg3.levelsConsumed },
     ],
     startUSDT: start,
-    endUSDT: endB,
-    netProfit: endB - start,
-    netProfitPct: (endB - start) / start,
+    endUSDT,
+    netProfit: endUSDT - start,
+    netProfitPct: (endUSDT - start) / start,
     feeCostUSDT,
     takerFee: params.takerFee,
     executable: false,
+    status: 'En espera',
   };
+  opp.executable = fullyFilled && opp.netProfitPct >= params.minNetPct && opp.netProfit > 0;
+  opp.status = candidateStatus(opp);
+  return opp;
+}
 
-  const better = a.netProfit >= b.netProfit ? a : b;
-  better.executable = better.netProfitPct >= params.minNetPct && better.netProfit > 0;
-  return better;
+/** Evaluate one candidate coin using the real order-book depth for all 3 legs. */
+export function evalCoinTriangle(
+  books: Record<string, OrderBook>,
+  coin: string,
+  params: TriParams,
+): TriangularOpportunity | null {
+  const a = evalDirectionA(books, coin, params);
+  const b = evalDirectionB(books, coin, params);
+  if (!a && !b) return null;
+  if (!a) return b;
+  if (!b) return a;
+  return a.netProfit >= b.netProfit ? a : b;
 }
 
 /**
@@ -166,12 +266,15 @@ export interface TriangularMultiResult {
   best: TriangularOpportunity | null;
   /** Best loop PER candidate coin that has a full set of books, sorted by netProfit. */
   perCoin: TriangularOpportunity[];
+  /** Candidate rows for every active coin, including clear missing-pair states. */
+  candidates: TriCandidateView[];
 }
 
 /**
  * Evaluate every candidate coin and return the global best plus the per-coin
  * breakdown (used by the dashboard to show all candidate routes). Coins without
- * a complete set of books are skipped gracefully.
+ * a complete set of books are shown with an explicit status instead of being
+ * silently skipped.
  */
 export function detectTriangularMulti(
   books: Record<string, OrderBook>,
@@ -179,13 +282,48 @@ export function detectTriangularMulti(
   coins: readonly string[],
 ): TriangularMultiResult {
   const perCoin: TriangularOpportunity[] = [];
+  const candidates: TriCandidateView[] = [];
   for (const coin of coins) {
     if (coin === 'BTC' || coin === 'USDT') continue; // base coins are anchors, not candidates
+    const missingPairs = requiredPairsFor(coin).filter((pair) => !books[pair] || !books[pair].bids[0] || !books[pair].asks[0]);
+    if (missingPairs.length) {
+      candidates.push({
+        coin,
+        path: `USDT→BTC→${coin}→USDT`,
+        direction: 'A',
+        netProfit: 0,
+        netProfitPct: 0,
+        feeCostUSDT: 0,
+        executable: false,
+        status: 'Sin pares suficientes',
+        missingPairs,
+      });
+      continue;
+    }
     const opp = evalCoinTriangle(books, coin, params);
-    if (opp) perCoin.push(opp);
+    if (opp) {
+      perCoin.push(opp);
+      candidates.push({
+        coin: opp.coin,
+        path: opp.path,
+        direction: opp.direction,
+        netProfit: opp.netProfit,
+        netProfitPct: opp.netProfitPct,
+        feeCostUSDT: opp.feeCostUSDT,
+        executable: opp.executable,
+        status: opp.status ?? candidateStatus(opp),
+      });
+    }
   }
   perCoin.sort((x, y) => y.netProfit - x.netProfit);
-  return { best: perCoin[0] ?? null, perCoin };
+  candidates.sort((x, y) => {
+    if (x.status !== y.status) {
+      if (x.status === 'Sin pares suficientes') return 1;
+      if (y.status === 'Sin pares suficientes') return -1;
+    }
+    return y.netProfit - x.netProfit;
+  });
+  return { best: perCoin[0] ?? null, perCoin, candidates };
 }
 
 /** Lightweight per-coin candidate view for the dashboard. */
@@ -195,7 +333,10 @@ export interface TriCandidateView {
   direction: 'A' | 'B';
   netProfit: number;
   netProfitPct: number;
+  feeCostUSDT: number;
   executable: boolean;
+  status: TriStatus;
+  missingPairs?: string[];
 }
 
 /** Simulated triangular engine: detects across active coins, executes, tracks P&L. */
@@ -207,7 +348,7 @@ export class TriangularEngine {
   private lastExecAt = 0;
   private stats = { opportunitiesSeen: 0, trades: 0, realizedPnl: 0, bestNetPct: 0 };
   private lastOpp: TriangularOpportunity | null = null;
-  private lastPerCoin: TriangularOpportunity[] = [];
+  private lastPerCoin: TriCandidateView[] = [];
   /** Active candidate coins (third leg). BTC/USDT are always the implicit anchors. */
   private coins: string[];
 
@@ -235,9 +376,9 @@ export class TriangularEngine {
   }
 
   tick(books: Record<string, OrderBook>): void {
-    const { best, perCoin } = detectTriangularMulti(books, this.params, this.coins);
+    const { best, candidates } = detectTriangularMulti(books, this.params, this.coins);
     this.lastOpp = best;
-    this.lastPerCoin = perCoin;
+    this.lastPerCoin = candidates;
     if (!best) return;
     if (best.executable) {
       this.stats.opportunitiesSeen += 1;
@@ -284,7 +425,8 @@ export class TriangularEngine {
       opportunity: this.lastOpp,
       candidates: this.lastPerCoin.map((o) => ({
         coin: o.coin, path: o.path, direction: o.direction,
-        netProfit: o.netProfit, netProfitPct: o.netProfitPct, executable: o.executable,
+        netProfit: o.netProfit, netProfitPct: o.netProfitPct, feeCostUSDT: o.feeCostUSDT,
+        executable: o.executable, status: o.status, missingPairs: o.missingPairs,
       })),
       feeCostUSDT: this.lastOpp ? this.lastOpp.feeCostUSDT : 0,
       takerFee: this.params.takerFee,

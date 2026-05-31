@@ -15,7 +15,7 @@ export interface EnginePrefs {
   activeExchanges: string[] | null;
   /** Risk appetite multiplier (0.25..4); 1 = configured defaults. */
   riskAppetite: number;
-  /** Active strategy id ('cross' | 'triangular' | 'auto'). */
+  /** Active strategy id ('cross' | 'triangular'). Legacy 'auto' values are normalized by the server. */
   strategy: string;
   /**
    * The single exchange Triangular runs on. Triangular arbitrage is confined to

@@ -46,7 +46,12 @@ function synthBook(exchange: string, symbol: string, mid: number, rng: () => num
   const bids: PriceLevel[] = []; const asks: PriceLevel[] = [];
   for (let i = 0; i < depth; i++) {
     const step = half * (1 + i);
-    const liq = +(0.5 + rng() * 4).toFixed(4);
+    // Size levels by approximate quote notional instead of raw base units.
+    // That keeps cheap coins (DOGE/XRP/ADA) usable for the same TRI_NOTIONAL
+    // as BTC/ETH and prevents the dashboard from being dominated by synthetic
+    // "Sin profundidad suficiente" rows.
+    const quoteDepth = 7_500 + rng() * 22_500;
+    const liq = +(quoteDepth / Math.max(mid, 1e-9)).toFixed(6);
     bids.push({ price: round(mid - step), amount: liq });
     asks.push({ price: round(mid + step), amount: liq });
   }
